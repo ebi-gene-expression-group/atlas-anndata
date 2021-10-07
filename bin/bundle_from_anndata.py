@@ -2,6 +2,7 @@
 
 import click
 from pathlib import Path
+import shutil
 import scanpy as sc
 import scanpy_scripts as ss
 import pathlib
@@ -22,11 +23,13 @@ import re
 @click.option('--filtered-matrix-slot', default=None, help='Layer name or "X", specifying storage location for gene-filtered matrix before transformations such as log transform, scaling etc.')
 @click.option('--normalised-matrix-slot', default=None, help='Layer name or "X", specifiying storage location for normalised matrix.')
 @click.option('--final-matrix-slot', default=None, help='Layer name or "X", specifiying storage location for the final matrix after processing. Will usually be in .X.')
-@click.option('--write-obsms/--no--write--obsms', default=True, is_flag=True, help='Write dimension reductions from .obsm to the bundle?')
-@click.option('--obsms', type=CommaSeparatedText(), default='all', help='Either "all" or a comma-separated list of obsm slots to write.')
+@click.option('--write-obsms/--no-write-obsms', default=True, is_flag=True, help='Write dimension reductions from .obsm to the bundle?')
+@click.option('--obsms', type=CommaSeparatedText(), help='A comma-separated list of obsm slots to write. Default is to write them all.')
+@click.option('--write-markers/--no--write--markers', default=True, is_flag=True, help='Write marker data to the bundle?')
+@click.option('--markers', type=CommaSeparatedText(), help='A comma-separated list of .uns slots corresponding to rank_genes_groups() outputs to write. Defaults to all slots matching "markers"')
 @click.option('--atlas-style', default='run', help='Assume the tight conventions from SCXA, e.g. on .obsm slot naming')
 
-def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms='all', atlas_style=True):
+def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_markers = True, markers=None, atlas_style=True):
     """Build a bundle directory compatible with Single Cell Expression Atlas (SCXA) build proceseses
    
     \b 
@@ -35,7 +38,8 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
     """
 
     adata = sc.read(anndata_file)
-    pathlib.Path(bundle_dir).mkdir(parents=True, exist_ok=True)    
+    shutil.rmtree(bundle_dir)
+    pathlib.Path(bundle_dir).mkdir(parents=True)    
 
     manifest=_read_file_manifest(bundle_dir)
 
@@ -57,17 +61,22 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
        
     if write_obsms:
         print("Writing obsms to file")
-        obsms = adata.obsm.keys() if obsms[0] == 'all' else obsms
+        obsms = adata.obsm.keys() if obsms is None else obsms
 
         for obsm in obsms:
             print(f"Writing {obsm}")
             manifest = _write_obsm_from_adata(manifest, adata, obsm_name=obsm, bundle_dir=bundle_dir, atlas_style= atlas_style)
-
+      
+    if write_markers:
+        print("Writing markers to file")
+        markers = list(filter(lambda k: 'markers' in k and 'filtered' not in k, adata.uns.keys())) if markers is None else markers
+        manifest = _write_markers_from_adata(manifest, adata, markers = markers, bundle_dir = bundle_dir, atlas_style = atlas_style)       
+ 
     # Write the final file manifest
 
     _write_file_manifest(bundle_dir, manifest) 
 
-# Make filename and parameterisation from obsm names
+# Write dimension reductions from .obsm slots
 
 def _write_obsm_from_adata(manifest, adata, obsm_name, bundle_dir, atlas_style = True):
 
@@ -96,6 +105,46 @@ def _write_obsm_from_adata(manifest, adata, obsm_name, bundle_dir, atlas_style =
     
     return manifest
 
+# For Atlas we store marker sets by integer number of clusters. Where cluster
+# nubmers clash between marker sets (e.g. for different resolution values) we
+# use the set from a resolution closest to 1
+# TODO: fix this for cell type markers
+
+def _write_markers_from_adata(manifest, adata, markers, bundle_dir, atlas_style = True):
+   
+    # For Atlas, we can extract resolution from the marker key, and where k
+    # values clash, prioritise resolution values closer to 1
+
+    if atlas_style: 
+        markers = list(dict(sorted(dict(zip( markers, [ abs(1 - float(m.split('_')[-1])) for m in markers ])).items(), key=lambda x: x[1])).keys())
+
+    marker_to_nclust = dict(zip( markers, [ len(ss.lib._diffexp.extract_de_table(adata.uns[m])['cluster'].unique()) for m in markers ]))
+
+    # Only keep the first marker set for a given k. For Atlas, ranked as above,
+    # this will be the makers from the resolution closest to 1 of clashing
+    # sets.
+
+    kept_markers = {}
+    for k, v in marker_to_nclust.items():
+        if v not in kept_markers.values():
+            kept_markers[k] = v
+
+    for marker, k in kept_markers.items():
+        de_tbl = ss.lib._diffexp.extract_de_table(adata.uns[marker])
+        de_tbl = de_tbl.loc[de_tbl.genes.astype(str) != 'nan', :]
+
+        # Reset cluster numbering to be from 1 if required
+
+        if de_tbl['cluster'].min() == '0':
+            de_tbl['cluster'] = [ int(x) + 1 for x in de_tbl['cluster'] ]    
+
+        filename = f"{bundle_dir}/markers_{k}.tsv"
+        print(f"Writing markers_{k}.tsv")
+        de_tbl.to_csv(filename, sep='\t', header=True, index=False)
+  
+        manifest = _set_manifest_value(manifest, 'cluster_markers', filename, k)
+
+    return manifest
 
 def _read_file_manifest(bundle_dir):
     manifest_file=f"{bundle_dir}/MANIFEST"
@@ -106,6 +155,8 @@ def _read_file_manifest(bundle_dir):
             header=fp.readline()
             for line in fp:
                 line_parts=line.rstrip().split("\t")
+                if len(line_parts) < 3:
+                    line_parts.append('')
                 manifest = _set_manifest_value(manifest, line_parts[0], line_parts[1], line_parts[2])
             
     return manifest
