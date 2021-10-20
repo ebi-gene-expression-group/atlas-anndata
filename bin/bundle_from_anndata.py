@@ -32,10 +32,13 @@ import re
 @click.option('--write-markers/--no--write--markers', default=True, is_flag=True, help='Write marker data to the bundle?')
 @click.option('--marker-clusterings', type=CommaSeparatedText(), help='A comma-separated list of clusterings for which to write markers. marker results are expected to be stored in .uns under keys like "markers_{clustering}. Defaults to all selected clusterings.')
 @click.option('--metadata-marker-fields', type=CommaSeparatedText(), help='A comma-separated list of .obs slots corresponding to metadata variables for which markers have been derived.')
+@click.option('--write-marker-stats/--no--write--marker-stats', default=True, is_flag=True, help='Write marker summary statistics (mean, median expression) to the bundle?')
+@click.option('--marker-stats-layers', type=CommaSeparatedText(), help='A comma-separated list of layers from which expression values should be summarised in marker statistics.')
+@click.option('--max-rank-for-stats', type=click.INT, default=4, help='For how many top marker genes should stats (mean, median expression) be output?')
 @click.option('--atlas-style', default='run', help='Assume the tight conventions from SCXA, e.g. on .obsm slot naming')
 @click.option('--gene-name-field', default='gene_name', help='Field in .var where gene name (symbol) is stored.')
 
-def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, atlas_style=True, gene_name_field='gene_name'):
+def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, write_marker_stats = True, marker_stats_layers=None, max_rank_for_stats=4,  atlas_style=True, gene_name_field='gene_name'):
     """Build a bundle directory compatible with Single Cell Expression Atlas (SCXA) build proceseses
    
     \b 
@@ -101,7 +104,7 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
         
     if write_markers:
         print("Writing markers to file")
-        manifest = _write_markers_from_adata(manifest, adata, clusters = clusters, marker_clusterings = marker_clusterings, metadata_marker_fields = metadata_marker_fields, bundle_dir = bundle_dir, atlas_style = atlas_style)       
+        manifest = _write_markers_from_adata(manifest, adata, clusters = clusters, marker_clusterings = marker_clusterings, metadata_marker_fields = metadata_marker_fields, bundle_dir = bundle_dir, atlas_style = atlas_style, max_rank_for_stats = max_rank_for_stats, marker_stats_layers = marker_stats_layers, write_marker_stats = write_marker_stats)       
  
     # Write the final file manifest
 
@@ -192,7 +195,7 @@ def _write_clusters_from_adata(manifest, adata, clusters, bundle_dir, atlas_styl
 # use the set from a resolution closest to 1
 # TODO: fix this for cell type markers
 
-def _write_markers_from_adata(manifest, adata, clusters, marker_clusterings = None, metadata_marker_fields = None, bundle_dir = None, atlas_style = True):
+def _write_markers_from_adata(manifest, adata, clusters, marker_clusterings = None, metadata_marker_fields = None, bundle_dir = None, atlas_style = True, write_marker_stats = True, max_rank_for_stats = 4, marker_stats_layers = None):
    
     clustering_to_k = _select_clusterings(adata, clusters = clusters, atlas_style = atlas_style)
    
@@ -211,11 +214,12 @@ def _write_markers_from_adata(manifest, adata, clusters, marker_clusterings = No
     if len(missing_marker_sets) > 0:
        raise Exception("Some supplied marker clusterings do not have marker results in .uns: %s" % ','.join(missing_marker_sets))         
 
+    de_tbls = dict(zip(marker_groupings, [ _get_markers_table(adata, mg) for mg in marker_groupings ]))
+
     for mg in marker_groupings:
         marker = f"markers_{mg}"
 
-        de_tbl = ss.lib._diffexp.extract_de_table(adata.uns[marker])
-        de_tbl = de_tbl.loc[de_tbl.genes.astype(str) != 'nan', :]
+        de_tbl = de_tbls[mg]
 
         # Reset cluster numbering to be from 1 if required
 
@@ -232,7 +236,60 @@ def _write_markers_from_adata(manifest, adata, clusters, marker_clusterings = No
             de_tbl.to_csv(filename, sep='\t', header=True, index=False)
             manifest = _set_manifest_value(manifest, 'meta_markers', filename, mg)
 
+    # Now make the summary stats
+
+    if write_marker_stats:
+    
+        marker_stats_layers = [ 'normalised' ] if marker_stats_layers is None else marker_stats_layers 
+
+        for sl in marker_stats_layers:
+            
+            if sl not in adata.layers.keys():
+                valid_layers=','.join(adata.layers.keys())
+                raise Exception(f"{sl} is not a valid layer, valid layers are {valid_layers}")
+
+            calculate_summary_stats(adata, marker_groupings, layer = sl)
+
+            marker_summary = pd.concat([ _make_markers_summary(adata, sl, mg, de_tbl, max_rank = max_rank_for_stats) for mg, de_tbl in de_tbls.items() ])
+            statsfile = f"{bundle_dir}/{sl}_stats.csv"
+            
+            marker_summary.to_csv(statsfile)
+            manifest = _set_manifest_value(manifest, 'marker_stats', statsfile, sl)
+
     return manifest
+
+def _get_markers_table(adata, marker_grouping):
+    
+    de_tbl = ss.lib._diffexp.extract_de_table(adata.uns[f"markers_{marker_grouping}"])
+    de_tbl = de_tbl.loc[de_tbl.genes.astype(str) != 'nan', :]
+
+    return de_tbl
+
+def _make_markers_summary(adata, layer, marker_grouping, de_tbl, max_rank=4):
+    
+    summary_stats = pd.concat([
+        adata.varm[f"mean_{layer}_{marker_grouping}"].melt(ignore_index=False),\
+        adata.varm[f"median_{layer}_{marker_grouping}"].melt(ignore_index=False)]\
+        , axis = 1)\
+        .iloc[:,[0,1,3]].set_axis(['cluster_id', 'mean_expression', 'median_expression'], axis=1)
+
+    new_colnames = {
+        'genes': 'gene_id',
+        'cluster': 'group_where_marker',
+        'pvals_adj': 'marker_p_value'
+    }
+
+    markers_summary = de_tbl.merge(summary_stats, left_on='genes', right_index=True)\
+        .drop(['ref', 'scores', 'logfoldchanges', 'pvals'], axis = 1)\
+        .rename(columns = new_colnames)
+
+    if max_rank:
+        markers_summary = markers_summary[markers_summary['rank'] <= max_rank]
+
+    markers_summary['grouping_where_marker'] = marker_grouping
+
+    return markers_summary[['gene_id', "grouping_where_marker","group_where_marker","cluster_id","marker_p_value","mean_expression","median_expression"]]
+
 
 def _read_file_manifest(bundle_dir):
     manifest_file=f"{bundle_dir}/MANIFEST"
@@ -349,6 +406,15 @@ def write_mtx(adata, fname_prefix='', var=None, obs=None, use_raw=False, use_lay
     if not var:
         var_df['gene'] = var_df['index']
     var_df.to_csv(gene_fname, sep='\t', header=False, index=False)
+
+def calculate_summary_stats(adata, obs, layer = 'normalised'):
+    print("Calculating summary stats")
+    for ob in obs:
+        genedf = sc.get.obs_df(adata, keys=[ob, *list(adata.var_names)], layer = layer)
+        grouped = genedf.groupby(ob)
+        mean, median = grouped.mean(), grouped.median()
+        adata.varm[f'mean_{layer}_{ob}'] = mean.transpose()
+        adata.varm[f'median_{layer}_{ob}'] = median.transpose()
 
 if __name__ == '__main__':
     create_bundle()
