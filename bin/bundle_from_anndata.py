@@ -32,8 +32,9 @@ import re
 @click.option('--write-markers/--no--write--markers', default=True, is_flag=True, help='Write marker data to the bundle?')
 @click.option('--marker_clusterings', type=CommaSeparatedText(), help='A comma-separated list of clusterings for which to write markers. marker results are expected to be stored in .uns under keys like "markers_{clustering}. Defaults to all selected clusterings.')
 @click.option('--atlas-style', default='run', help='Assume the tight conventions from SCXA, e.g. on .obsm slot naming')
+@click.option('--gene-name-field', default='gene_name', help='Field in .var where gene name (symbol) is stored.')
 
-def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, atlas_style=True):
+def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, atlas_style=True, gene_name_field='gene_name'):
     """Build a bundle directory compatible with Single Cell Expression Atlas (SCXA) build proceseses
    
     \b 
@@ -42,6 +43,13 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
     """
 
     adata = sc.read(anndata_file)
+
+    # For any genes without names, assign the ID
+    genes_with_missing_names = list(adata.var_names[pd.isnull(adata.var[gene_name_field])])
+    adata.var[gene_name_field] = adata.var[gene_name_field].cat.add_categories(genes_with_missing_names)
+    adata.var.loc[genes_with_missing_names, gene_name_field] = genes_with_missing_names
+
+
     shutil.rmtree(bundle_dir)
     pathlib.Path(bundle_dir).mkdir(parents=True)    
 
@@ -49,19 +57,19 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
 
     if raw_matrix_slot is not None:
         print("Storing raw matrix")
-        manifest = _write_matrix_from_adata(manifest, adata, slot=raw_matrix_slot, bundle_dir=bundle_dir, subdir='raw')        
+        manifest = _write_matrix_from_adata(manifest, adata, slot=raw_matrix_slot, bundle_dir=bundle_dir, subdir='raw', gene_name_field=gene_name_field)        
     
     if filtered_matrix_slot is not None:
         print("Storing filtered matrix")
-        manifest = _write_matrix_from_adata(manifest, adata, slot=filtered_matrix_slot, bundle_dir=bundle_dir, subdir='raw_filtered')         
+        manifest = _write_matrix_from_adata(manifest, adata, slot=filtered_matrix_slot, bundle_dir=bundle_dir, subdir='raw_filtered', gene_name_field=gene_name_field)         
     
     if normalised_matrix_slot is not None:
         print("Storing normalised matrix")
-        manifest = _write_matrix_from_adata(manifest, adata, slot=normalised_matrix_slot, bundle_dir=bundle_dir, subdir='filtered_normalised')         
+        manifest = _write_matrix_from_adata(manifest, adata, slot=normalised_matrix_slot, bundle_dir=bundle_dir, subdir='filtered_normalised', gene_name_field=gene_name_field)         
     
     if final_matrix_slot is not None:
         print("Storing normalised matrix")
-        manifest = _write_matrix_from_adata(manifest, adata, slot=final_matrix_slot, bundle_dir=bundle_dir, subdir='final')         
+        manifest = _write_matrix_from_adata(manifest, adata, slot=final_matrix_slot, bundle_dir=bundle_dir, subdir='final', gene_name_field=gene_name_field)         
        
     if write_obsms:
         print("Writing obsms to file")
@@ -249,7 +257,7 @@ def _set_manifest_value(manifest, description, filename, parameterisation):
 
     return manifest
 
-def _write_matrix_from_adata(manifest, adata, slot, bundle_dir, subdir):
+def _write_matrix_from_adata(manifest, adata, slot, bundle_dir, subdir, gene_name_field='gene_name'):
     
     layer = None
     use_raw = False
@@ -263,7 +271,7 @@ def _write_matrix_from_adata(manifest, adata, slot, bundle_dir, subdir):
 
     pathlib.Path(bundle_dir, subdir).mkdir(parents=True, exist_ok=True)    
     #ss.cmd_utils.write_mtx(adata, fname_prefix = '%s/%s/' % (bundle_dir, filename), use_raw=use_raw, use_layer=layer)
-    write_mtx(adata, fname_prefix = f"{bundle_dir}/{subdir}/", use_raw=use_raw, use_layer=layer)
+    write_mtx(adata, fname_prefix = f"{bundle_dir}/{subdir}/", use_raw=use_raw, use_layer=layer, var=[gene_name_field])
     
     for filename in [ 'matrix.mtx', 'barcodes.tsv', 'genes.tsv' ]:
         subfile=f"{subdir}/{filename}" 
