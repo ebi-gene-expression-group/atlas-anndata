@@ -30,11 +30,12 @@ import re
 @click.option('--clusters-field-pattern', default='louvain', help='If --clusters not supplied, a string to be used to select columns from .obs representing unsupervised clusterings.')
 @click.option('--default-clustering', help='Where --write-clusters is set, which clustering should be set as the default? If not set, the middle (or first middle) clustering will be selected, or if --atlas-style is set, this will be the clustering corresponding to a resolution of 1.')
 @click.option('--write-markers/--no--write--markers', default=True, is_flag=True, help='Write marker data to the bundle?')
-@click.option('--marker_clusterings', type=CommaSeparatedText(), help='A comma-separated list of clusterings for which to write markers. marker results are expected to be stored in .uns under keys like "markers_{clustering}. Defaults to all selected clusterings.')
+@click.option('--marker-clusterings', type=CommaSeparatedText(), help='A comma-separated list of clusterings for which to write markers. marker results are expected to be stored in .uns under keys like "markers_{clustering}. Defaults to all selected clusterings.')
+@click.option('--metadata-marker-fields', type=CommaSeparatedText(), help='A comma-separated list of .obs slots corresponding to metadata variables for which markers have been derived.')
 @click.option('--atlas-style', default='run', help='Assume the tight conventions from SCXA, e.g. on .obsm slot naming')
 @click.option('--gene-name-field', default='gene_name', help='Field in .var where gene name (symbol) is stored.')
 
-def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, atlas_style=True, gene_name_field='gene_name'):
+def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, atlas_style=True, gene_name_field='gene_name'):
     """Build a bundle directory compatible with Single Cell Expression Atlas (SCXA) build proceseses
    
     \b 
@@ -49,8 +50,9 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
     adata.var[gene_name_field] = adata.var[gene_name_field].cat.add_categories(genes_with_missing_names)
     adata.var.loc[genes_with_missing_names, gene_name_field] = genes_with_missing_names
 
-
-    shutil.rmtree(bundle_dir)
+    if Path(bundle_dir).is_dir():
+        shutil.rmtree(bundle_dir)
+    
     pathlib.Path(bundle_dir).mkdir(parents=True)    
 
     manifest=_read_file_manifest(bundle_dir)
@@ -68,7 +70,7 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
         manifest = _write_matrix_from_adata(manifest, adata, slot=normalised_matrix_slot, bundle_dir=bundle_dir, subdir='filtered_normalised', gene_name_field=gene_name_field)         
     
     if final_matrix_slot is not None:
-        print("Storing normalised matrix")
+        print("Storing final matrix")
         manifest = _write_matrix_from_adata(manifest, adata, slot=final_matrix_slot, bundle_dir=bundle_dir, subdir='final', gene_name_field=gene_name_field)         
        
     if write_obsms:
@@ -99,7 +101,7 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
         
     if write_markers:
         print("Writing markers to file")
-        manifest = _write_markers_from_adata(manifest, adata, clusters = clusters, marker_clusterings = marker_clusterings, bundle_dir = bundle_dir, atlas_style = atlas_style)       
+        manifest = _write_markers_from_adata(manifest, adata, clusters = clusters, marker_clusterings = marker_clusterings, metadata_marker_fields = metadata_marker_fields, bundle_dir = bundle_dir, atlas_style = atlas_style)       
  
     # Write the final file manifest
 
@@ -190,23 +192,27 @@ def _write_clusters_from_adata(manifest, adata, clusters, bundle_dir, atlas_styl
 # use the set from a resolution closest to 1
 # TODO: fix this for cell type markers
 
-def _write_markers_from_adata(manifest, adata, clusters, marker_clusterings, bundle_dir, atlas_style = True):
+def _write_markers_from_adata(manifest, adata, clusters, marker_clusterings = None, metadata_marker_fields = None, bundle_dir = None, atlas_style = True):
    
     clustering_to_k = _select_clusterings(adata, clusters = clusters, atlas_style = atlas_style)
    
     # If no explicit marker sets suppplied, select those corresponding to the
     # selected clusterings (where available)
  
+    marker_groupings = []
+
     if marker_clusterings is None:
-        marker_clusterings = [ x for x in clustering_to_k.keys() if f"markers_{x}" in adata.uns.keys() ]
+        marker_groupings = [ x for x in clustering_to_k.keys() if f"markers_{x}" in adata.uns.keys() ]
    
-    missing_marker_sets = [ x for x in marker_clusterings if f"markers_{x}" not in adata.uns.keys() ] 
+    if metadata_marker_fields is not None:
+        marker_groupings = marker_groupings + metadata_marker_fields
+
+    missing_marker_sets = [ x for x in marker_groupings if f"markers_{x}" not in adata.uns.keys() ] 
     if len(missing_marker_sets) > 0:
        raise Exception("Some supplied marker clusterings do not have marker results in .uns: %s" % ','.join(missing_marker_sets))         
 
-    for mc in marker_clusterings:
-        marker = f"markers_{mc}"
-        k = clustering_to_k[mc]
+    for mg in marker_groupings:
+        marker = f"markers_{mg}"
 
         de_tbl = ss.lib._diffexp.extract_de_table(adata.uns[marker])
         de_tbl = de_tbl.loc[de_tbl.genes.astype(str) != 'nan', :]
@@ -216,11 +222,15 @@ def _write_markers_from_adata(manifest, adata, clusters, marker_clusterings, bun
         if de_tbl['cluster'].min() == '0':
             de_tbl['cluster'] = [ int(x) + 1 for x in de_tbl['cluster'] ]    
 
-        filename = f"{bundle_dir}/markers_{k}.tsv"
-        print(f"Writing markers_{k}.tsv")
-        de_tbl.to_csv(filename, sep='\t', header=True, index=False)
-      
-        manifest = _set_manifest_value(manifest, 'cluster_markers', filename, k)
+        if mg in clustering_to_k:
+            k = clustering_to_k[mg]
+            filename = f"{bundle_dir}/markers_{k}.tsv"
+            de_tbl.to_csv(filename, sep='\t', header=True, index=False)
+            manifest = _set_manifest_value(manifest, 'cluster_markers', filename, k)
+        else:
+            filename =  f"{bundle_dir}/{marker}.tsv"      
+            de_tbl.to_csv(filename, sep='\t', header=True, index=False)
+            manifest = _set_manifest_value(manifest, 'meta_markers', filename, mg)
 
     return manifest
 
