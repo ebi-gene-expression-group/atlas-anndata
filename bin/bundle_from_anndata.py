@@ -25,11 +25,15 @@ import re
 @click.option('--final-matrix-slot', default=None, help='Layer name or "X", specifiying storage location for the final matrix after processing. Will usually be in .X.')
 @click.option('--write-obsms/--no-write-obsms', default=True, is_flag=True, help='Write dimension reductions from .obsm to the bundle?')
 @click.option('--obsms', type=CommaSeparatedText(), help='A comma-separated list of obsm slots to write. Default is to write them all.')
+@click.option('--write-clusters/--no--write--clusters', default=True, is_flag=True, help='Write cluster data to the bundle?')
+@click.option('--clusters', type=CommaSeparatedText(), help='A comma-separated list of .obs slots corresponding to unsupervised clusterings.')
+@click.option('--clusters-field-pattern', default='louvain', help='If --clusters not supplied, a string to be used to select columns from .obs representing unsupervised clusterings.')
+@click.option('--default-clustering', help='Where --write-clusters is set, which clustering should be set as the default? If not set, the middle (or first middle) clustering will be selected, or if --atlas-style is set, this will be the clustering corresponding to a resolution of 1.')
 @click.option('--write-markers/--no--write--markers', default=True, is_flag=True, help='Write marker data to the bundle?')
-@click.option('--markers', type=CommaSeparatedText(), help='A comma-separated list of .uns slots corresponding to rank_genes_groups() outputs to write. Defaults to all slots matching "markers"')
+@click.option('--marker_clusterings', type=CommaSeparatedText(), help='A comma-separated list of clusterings for which to write markers. marker results are expected to be stored in .uns under keys like "markers_{clustering}. Defaults to all selected clusterings.')
 @click.option('--atlas-style', default='run', help='Assume the tight conventions from SCXA, e.g. on .obsm slot naming')
 
-def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_markers = True, markers=None, atlas_style=True):
+def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, atlas_style=True):
     """Build a bundle directory compatible with Single Cell Expression Atlas (SCXA) build proceseses
    
     \b 
@@ -66,11 +70,28 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
         for obsm in obsms:
             print(f"Writing {obsm}")
             manifest = _write_obsm_from_adata(manifest, adata, obsm_name=obsm, bundle_dir=bundle_dir, atlas_style= atlas_style)
-      
+    
+    if write_clusters:
+        print("Writing clusterings to file")
+ 
+        # If no list of cluster variables is specified, select automatically
+        # using the field pattern. If the fields are supplied, use the ones
+        # that are actually present in .obs.
+       
+        if clusters is None:
+            clusters = [ x for x in adata.obs.columns if clusters_field_pattern in x ]
+        else:
+            clusters = list(set(clusters) & set(adata.obs.columns))
+        
+        if len(clusters) == 0:
+            print(f"No .obs slots matching clusters specifications.") 
+            return False
+
+        manifest = _write_clusters_from_adata(manifest, adata, clusters = clusters, bundle_dir = bundle_dir, atlas_style = atlas_style)       
+        
     if write_markers:
         print("Writing markers to file")
-        markers = list(filter(lambda k: 'markers' in k and 'filtered' not in k, adata.uns.keys())) if markers is None else markers
-        manifest = _write_markers_from_adata(manifest, adata, markers = markers, bundle_dir = bundle_dir, atlas_style = atlas_style)       
+        manifest = _write_markers_from_adata(manifest, adata, clusters = clusters, marker_clusterings = marker_clusterings, bundle_dir = bundle_dir, atlas_style = atlas_style)       
  
     # Write the final file manifest
 
@@ -105,31 +126,80 @@ def _write_obsm_from_adata(manifest, adata, obsm_name, bundle_dir, atlas_style =
     
     return manifest
 
+def _select_clusterings(adata, clusters, atlas_style = True):
+    
+    clusterings = list(dict(sorted(dict(zip( clusters, [ abs(1 - float(c.split('_')[-1])) for c in clusters ])).items(), key=lambda x: x[1])).keys())
+
+    clustering_to_nclust = dict(zip( clusterings, [ len(adata.obs[c].unique()) for c in clusterings ]))
+
+    if atlas_style:
+
+        # Only keep the first marker set for a given k. For Atlas, ranked as above,
+        # this will be the makers from the resolution closest to 1 of clashing
+        # sets.
+
+        kept_clusterings = {}
+        for k, v in clustering_to_nclust.items():
+            if v not in kept_clusterings.values():
+                kept_clusterings[k] = v
+
+        clustering_to_nclust = kept_clusterings
+
+    return dict(sorted(clustering_to_nclust.items(), key=lambda item: item[1]))
+
+def _write_clusters_from_adata(manifest, adata, clusters, bundle_dir, atlas_style = True, default_clustering = None):
+   
+    if default_clustering is None:
+        if atlas_style:
+            default_clustering = 'louvain_resolution_1.0'
+        else:
+            default_clustering = clusterings[math.floor((len(clusterings)-1)/2)]
+     
+    clustering_to_k = _select_clusterings(adata, clusters = clusters, atlas_style = atlas_style)
+
+    # Write the complete clusters file in order
+    clusters_output = open(f"{bundle_dir}/clusters_for_bundle.txt", mode="w")
+    
+    with open(f"{bundle_dir}/clusters_for_bundle.txt", mode="w") as fp:
+        fp.write("sel.K\tK\t"+"\t".join(list(adata.obs_names))+"\n")
+
+        for clustering, k in clustering_to_k.items():
+            selected = 'TRUE' if clustering == default_clustering else 'FALSE'
+            cluster_memberships = list(adata.obs[clustering])
+            if min([ int(x) for x in cluster_memberships ]) == 0:
+                cluster_memberships = [ str(int(x) + 1) for x in cluster_memberships ]
+
+            fp.write("\t".join([selected, str(k)]))
+            fp.write("\t"+"\t".join(list(cluster_memberships)))
+            fp.write("\n")
+            
+    manifest = _set_manifest_value(manifest, 'cluster_memberships', f"{bundle_dir}/clusters_for_bundle.txt", '')
+
+    return manifest
+
 # For Atlas we store marker sets by integer number of clusters. Where cluster
 # nubmers clash between marker sets (e.g. for different resolution values) we
 # use the set from a resolution closest to 1
 # TODO: fix this for cell type markers
 
-def _write_markers_from_adata(manifest, adata, markers, bundle_dir, atlas_style = True):
+def _write_markers_from_adata(manifest, adata, clusters, marker_clusterings, bundle_dir, atlas_style = True):
    
-    # For Atlas, we can extract resolution from the marker key, and where k
-    # values clash, prioritise resolution values closer to 1
+    clustering_to_k = _select_clusterings(adata, clusters = clusters, atlas_style = atlas_style)
+   
+    # If no explicit marker sets suppplied, select those corresponding to the
+    # selected clusterings (where available)
+ 
+    if marker_clusterings is None:
+        marker_clusterings = [ x for x in clustering_to_k.keys() if f"markers_{x}" in adata.uns.keys() ]
+   
+    missing_marker_sets = [ x for x in marker_clusterings if f"markers_{x}" not in adata.uns.keys() ] 
+    if len(missing_marker_sets) > 0:
+       raise Exception("Some supplied marker clusterings do not have marker results in .uns: %s" % ','.join(missing_marker_sets))         
 
-    if atlas_style: 
-        markers = list(dict(sorted(dict(zip( markers, [ abs(1 - float(m.split('_')[-1])) for m in markers ])).items(), key=lambda x: x[1])).keys())
+    for mc in marker_clusterings:
+        marker = f"markers_{mc}"
+        k = clustering_to_k[mc]
 
-    marker_to_nclust = dict(zip( markers, [ len(ss.lib._diffexp.extract_de_table(adata.uns[m])['cluster'].unique()) for m in markers ]))
-
-    # Only keep the first marker set for a given k. For Atlas, ranked as above,
-    # this will be the makers from the resolution closest to 1 of clashing
-    # sets.
-
-    kept_markers = {}
-    for k, v in marker_to_nclust.items():
-        if v not in kept_markers.values():
-            kept_markers[k] = v
-
-    for marker, k in kept_markers.items():
         de_tbl = ss.lib._diffexp.extract_de_table(adata.uns[marker])
         de_tbl = de_tbl.loc[de_tbl.genes.astype(str) != 'nan', :]
 
@@ -141,7 +211,7 @@ def _write_markers_from_adata(manifest, adata, markers, bundle_dir, atlas_style 
         filename = f"{bundle_dir}/markers_{k}.tsv"
         print(f"Writing markers_{k}.tsv")
         de_tbl.to_csv(filename, sep='\t', header=True, index=False)
-  
+      
         manifest = _set_manifest_value(manifest, 'cluster_markers', filename, k)
 
     return manifest
