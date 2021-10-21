@@ -250,10 +250,11 @@ def _write_markers_from_adata(manifest, adata, clusters, marker_clusterings = No
 
             calculate_summary_stats(adata, marker_groupings, layer = sl)
 
-            marker_summary = pd.concat([ _make_markers_summary(adata, sl, mg, de_tbl, max_rank = max_rank_for_stats) for mg, de_tbl in de_tbls.items() ])
+            # Convert grouping name to k for storage
+            marker_summary = pd.concat([ _make_markers_summary(adata, sl, mg, de_tbl, max_rank = max_rank_for_stats, k = clustering_to_k.get(mg)) for mg, de_tbl in de_tbls.items() ])
             statsfile = f"{bundle_dir}/{sl}_stats.csv"
             
-            marker_summary.to_csv(statsfile)
+            marker_summary.to_csv(statsfile, index=False)
             manifest = _set_manifest_value(manifest, 'marker_stats', statsfile, sl)
 
     return manifest
@@ -265,7 +266,7 @@ def _get_markers_table(adata, marker_grouping):
 
     return de_tbl
 
-def _make_markers_summary(adata, layer, marker_grouping, de_tbl, max_rank=4):
+def _make_markers_summary(adata, layer, marker_grouping, de_tbl, max_rank=4, k = None):
     
     summary_stats = pd.concat([
         adata.varm[f"mean_{layer}_{marker_grouping}"].melt(ignore_index=False),\
@@ -286,8 +287,14 @@ def _make_markers_summary(adata, layer, marker_grouping, de_tbl, max_rank=4):
     if max_rank:
         markers_summary = markers_summary[markers_summary['rank'] <= max_rank]
 
-    markers_summary['grouping_where_marker'] = marker_grouping
+    # For unsupervised clusterings, record the grouping as k and increment the
+    # group numbers so they start from 1
 
+    if k:
+        markers_summary['grouping_where_marker'] = k
+        if min([ int(x) for x in  markers_summary['cluster_id'] ]) == 0:
+            markers_summary[ 'cluster_id' ] = [ int(x) + 1 for x in markers_summary[ 'cluster_id' ] ]
+        
     return markers_summary[['gene_id', "grouping_where_marker","group_where_marker","cluster_id","marker_p_value","mean_expression","median_expression"]]
 
 
