@@ -37,8 +37,9 @@ import re
 @click.option('--max-rank-for-stats', type=click.INT, default=4, help='For how many top marker genes should stats (mean, median expression) be output?')
 @click.option('--atlas-style', default='run', help='Assume the tight conventions from SCXA, e.g. on .obsm slot naming')
 @click.option('--gene-name-field', default='gene_name', help='Field in .var where gene name (symbol) is stored.')
+@click.option('--write-anndata/--no--write--anndata', default=True, is_flag=True, help='Write the annData file itself to the bundle?')
 
-def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, write_marker_stats = True, marker_stats_layers=None, max_rank_for_stats=4,  atlas_style=True, gene_name_field='gene_name'):
+def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, write_marker_stats = True, marker_stats_layers=None, max_rank_for_stats=4,  atlas_style=True, gene_name_field='gene_name', write_anndata = True):
     """Build a bundle directory compatible with Single Cell Expression Atlas (SCXA) build proceseses
    
     \b 
@@ -106,6 +107,12 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
         print("Writing markers to file")
         manifest = _write_markers_from_adata(manifest, adata, clusters = clusters, marker_clusterings = marker_clusterings, metadata_marker_fields = metadata_marker_fields, bundle_dir = bundle_dir, atlas_style = atlas_style, max_rank_for_stats = max_rank_for_stats, marker_stats_layers = marker_stats_layers, write_marker_stats = write_marker_stats)       
  
+    if write_anndata:
+        print("Writing annData file to bundle")
+        adata_filename = os.path.basename(anndata_file)
+        adata.write(f"{bundle_dir}/{adata_filename}")
+        manifest = _set_manifest_value(manifest, 'project_file', adata_filename, '')
+
     # Write the final file manifest
 
     _write_file_manifest(bundle_dir, manifest) 
