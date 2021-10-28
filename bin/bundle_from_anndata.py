@@ -16,9 +16,11 @@ import re
 @click.command()
 @click.argument('anndata_file', type=click.Path(exists=True))
 @click.argument('bundle_dir', type=click.Path(dir_okay=True))
-@click.option('--droplet', default=False, help='Specify that this is a droplet experiment. There must be an obs parameter that can be used to differentiate cells from different runs.')
-@click.option('--run-obs', default='run', help='The column in obs that differentiates cells from different runs. Will be used to separate run-wise and cell-wise metdata.')
+@click.option('--exp-name', default='E-EXP-1234', help='Specify an Expression Atlas identifier that will be used for this experiment. If not set, a placeholder value E-EXP-1234 will be used and can be edited in the bundle later.')
+@click.option('--droplet', default=False, is_flag=True, help='Is this a droplet experiment?')
 @click.option('--exp-desc', default=None, help='Provide an experiment description file. If unspecified, the script will check for a slot called "experiment" in the .uns slot of the annData object, and use that to create a starting version of an IDF file.', type=click.Path(exists=True))
+@click.option('--write-cellmeta/--no-write-cellmeta', default=True, is_flag=True, help='Write a table of cell-wise metadata from .obs.')
+@click.option('--nonmeta-obs-patterns', type=CommaSeparatedText(), help='A comma-separated list of patterns to be used to exlude columns when writing cell metadata from .obs. Defaults to louvain,n_genes,n_counts,pct_,total_counts')
 @click.option('--raw-matrix-slot', default=None, help='Slot where the most raw and least filtered expression data are stored. This is usually in raw.X, other values will be interpreted as layers (in .raw if prefixed with "raw". annData requires that .raw.X and .X match in .obs, so even when stored in .raw this will have to be the matrix afer cell filtering, but should ideally not be gene-filtered.')
 @click.option('--filtered-matrix-slot', default=None, help='Layer name or "X", specifying storage location for gene-filtered matrix before transformations such as log transform, scaling etc.')
 @click.option('--normalised-matrix-slot', default=None, help='Layer name or "X", specifiying storage location for normalised matrix.')
@@ -39,7 +41,7 @@ import re
 @click.option('--gene-name-field', default='gene_name', help='Field in .var where gene name (symbol) is stored.')
 @click.option('--write-anndata/--no--write--anndata', default=True, is_flag=True, help='Write the annData file itself to the bundle?')
 
-def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, write_marker_stats = True, marker_stats_layers=None, max_rank_for_stats=4,  atlas_style=True, gene_name_field='gene_name', write_anndata = True):
+def create_bundle(anndata_file, bundle_dir, exp_name='E-EXP-1234', droplet=False, write_cellmeta=True, nonmeta_obs_patterns=None, exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, write_marker_stats = True, marker_stats_layers=None, max_rank_for_stats=4,  atlas_style=True, gene_name_field='gene_name', write_anndata = True):
     """Build a bundle directory compatible with Single Cell Expression Atlas (SCXA) build proceseses
    
     \b 
@@ -47,7 +49,11 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
     bundle_dir   - A directory in which to create the bundle.
     """
 
+    # Read input annData, remove anything completely empty in .obs or .var
+
     adata = sc.read(anndata_file)
+    adata.obs.dropna(how='all', axis=0, inplace=True)
+    adata.obs.dropna(how='all', axis=1, inplace=True)
 
     # For any genes without names, assign the ID
     genes_with_missing_names = list(adata.var_names[pd.isnull(adata.var[gene_name_field])])
@@ -57,9 +63,13 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
     if Path(bundle_dir).is_dir():
         shutil.rmtree(bundle_dir)
     
-    pathlib.Path(bundle_dir).mkdir(parents=True)    
+    pathlib.Path(f"{bundle_dir}/mage-tab").mkdir(parents=True)    
 
     manifest=_read_file_manifest(bundle_dir)
+
+    if write_cellmeta:
+       print("Storing cell and run/sample metadata")
+       manifest = _write_cell_metadata(manifest, adata, bundle_dir, exp_name=exp_name, droplet=droplet, nonmeta_obs_patterns = nonmeta_obs_patterns)
 
     if raw_matrix_slot is not None:
         print("Storing raw matrix")
@@ -109,13 +119,63 @@ def create_bundle(anndata_file, bundle_dir, droplet=False, run_obs='run', exp_de
  
     if write_anndata:
         print("Writing annData file to bundle")
-        adata_filename = os.path.basename(anndata_file)
+        adata_filename = f"{exp_name}.project.h5ad"
         adata.write(f"{bundle_dir}/{adata_filename}")
-        manifest = _set_manifest_value(manifest, 'project_file', adata_filename, '')
+        manifest = _set_manifest_value(manifest, 'project_file', adata_filename)
 
     # Write the final file manifest
 
     _write_file_manifest(bundle_dir, manifest) 
+
+# Write cell metadata, including for curation as mage-tab 
+
+def _write_cell_metadata(manifest, adata, bundle_dir, exp_name='E-EXP-1234', droplet=False, nonmeta_obs_patterns = None):
+
+    print("Writing cell metdata to be used in curation")
+    cellmeta_filename = f"{bundle_dir}/{exp_name}.cell_metadata.tsv"
+    presdrf_filename = f"{bundle_dir}/mage-tab/{exp_name}.presdrf.txt"
+    precells_filename = f"{bundle_dir}/mage-tab/{exp_name}.precells.txt"
+        
+    # Don't write calculated fields
+
+    if nonmeta_obs_patterns is None:
+        nonmeta_obs_patterns = ['louvain', 'n_genes', 'n_counts', 'pct_', 'total_counts', 'predicted_doublet', 'doublet_score']
+    
+    nonmeta_cols = [ x for x in adata.obs.columns if any( [ y in x for y in  nonmeta_obs_patterns ]) ]
+    cellmeta_cols = [ x for x in adata.obs.columns if x not in nonmeta_cols ]
+    
+    cell_metadata = adata.obs[cellmeta_cols].copy()
+    cell_metadata.to_csv(cellmeta_filename, sep='\t', header=True, index=True, index_label='id')
+    manifest = _set_manifest_value(manifest, 'cell_metadata', cellmeta_filename)
+
+    if droplet:
+    
+        # Split cell IDs to runs and barcodes
+    
+        runs, barcodes = zip(*(s.split("-") for s in adata.obs_names))
+        cell_metadata['cell barcode'] = barcodes
+
+        # Split cell metadata by run ID and create run-wise metadata with
+        # any invariant value across all cells of a run
+
+        unique_runs = list(set(runs))
+        submetas = [ cell_metadata[ [y == x for y in runs] ] for x in unique_runs ]
+        run_meta = pd.concat([ df[[ x for x in df.columns if len(set(df[x])) == 1 ]].head(1) for df in submetas], join = 'inner')
+        run_meta['run'] = unique_runs
+        run_meta.set_index('run', inplace = True)            
+
+        run_meta.to_csv(presdrf_filename, sep='\t', header=True, index=True, index_label='id')
+        cell_specific_metadata = cell_metadata[ [ x for x in cell_metadata.columns if x not in nonmeta_cols + list(run_meta.columns) ] ]
+
+        if len(cell_specific_metadata.columns) > 0:
+            cell_specific_metadata.to_csv(precells_filename, sep='\t', header=True, index=True, index_label='Cell ID')
+        else:
+            print("Supplied anndata contained no cell-specific metadata for this droplet experiment")
+    
+    else:
+        cell_metadata.to_csv(presdrf_filename, sep='\t', header=True, index=True, index_label='id')
+    
+    return manifest
 
 # Write dimension reductions from .obsm slots
 
@@ -193,7 +253,7 @@ def _write_clusters_from_adata(manifest, adata, clusters, bundle_dir, atlas_styl
             fp.write("\t"+"\t".join(list(cluster_memberships)))
             fp.write("\n")
             
-    manifest = _set_manifest_value(manifest, 'cluster_memberships', f"{bundle_dir}/clusters_for_bundle.txt", '')
+    manifest = _set_manifest_value(manifest, 'cluster_memberships', f"{bundle_dir}/clusters_for_bundle.txt")
 
     return manifest
 
@@ -330,7 +390,7 @@ def _write_file_manifest(bundle_dir, manifest):
             for parameterisation, filename in v.items():
                 fh.write(f"{description}\t{filename}\t{parameterisation}\n")
 
-def _set_manifest_value(manifest, description, filename, parameterisation):
+def _set_manifest_value(manifest, description, filename, parameterisation=''):
     if description not in manifest:
         manifest[description] = OrderedDict()
     
