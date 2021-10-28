@@ -20,7 +20,9 @@ import re
 @click.option('--droplet', default=False, is_flag=True, help='Is this a droplet experiment?')
 @click.option('--exp-desc', default=None, help='Provide an experiment description file. If unspecified, the script will check for a slot called "experiment" in the .uns slot of the annData object, and use that to create a starting version of an IDF file.', type=click.Path(exists=True))
 @click.option('--write-cellmeta/--no-write-cellmeta', default=True, is_flag=True, help='Write a table of cell-wise metadata from .obs.')
+@click.option('--write-genemeta/--no-write-genemeta', default=True, is_flag=True, help='Write a table of gene-wise metadata from .var.')
 @click.option('--nonmeta-obs-patterns', type=CommaSeparatedText(), help='A comma-separated list of patterns to be used to exlude columns when writing cell metadata from .obs. Defaults to louvain,n_genes,n_counts,pct_,total_counts')
+@click.option('--nonmeta-var-patterns', type=CommaSeparatedText(), help='A comma-separated list of patterns to be used to exlude columns when writing gene metadata from .obs. Defaults to mean,counts,n_cells,highly_variable,dispersion')
 @click.option('--raw-matrix-slot', default=None, help='Slot where the most raw and least filtered expression data are stored. This is usually in raw.X, other values will be interpreted as layers (in .raw if prefixed with "raw". annData requires that .raw.X and .X match in .obs, so even when stored in .raw this will have to be the matrix afer cell filtering, but should ideally not be gene-filtered.')
 @click.option('--filtered-matrix-slot', default=None, help='Layer name or "X", specifying storage location for gene-filtered matrix before transformations such as log transform, scaling etc.')
 @click.option('--normalised-matrix-slot', default=None, help='Layer name or "X", specifiying storage location for normalised matrix.')
@@ -41,7 +43,7 @@ import re
 @click.option('--gene-name-field', default='gene_name', help='Field in .var where gene name (symbol) is stored.')
 @click.option('--write-anndata/--no--write--anndata', default=True, is_flag=True, help='Write the annData file itself to the bundle?')
 
-def create_bundle(anndata_file, bundle_dir, exp_name='E-EXP-1234', droplet=False, write_cellmeta=True, nonmeta_obs_patterns=None, exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, write_marker_stats = True, marker_stats_layers=None, max_rank_for_stats=4,  atlas_style=True, gene_name_field='gene_name', write_anndata = True):
+def create_bundle(anndata_file, bundle_dir, exp_name='E-EXP-1234', droplet=False, write_cellmeta=True, write_genemeta=True, nonmeta_var_patterns = None, nonmeta_obs_patterns=None, exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, write_marker_stats = True, marker_stats_layers=None, max_rank_for_stats=4,  atlas_style=True, gene_name_field='gene_name', write_anndata = True):
     """Build a bundle directory compatible with Single Cell Expression Atlas (SCXA) build proceseses
    
     \b 
@@ -64,27 +66,41 @@ def create_bundle(anndata_file, bundle_dir, exp_name='E-EXP-1234', droplet=False
         shutil.rmtree(bundle_dir)
     
     pathlib.Path(f"{bundle_dir}/mage-tab").mkdir(parents=True)    
+    pathlib.Path(f"{bundle_dir}/reference").mkdir()  
 
     manifest=_read_file_manifest(bundle_dir)
 
     if write_cellmeta:
-       print("Storing cell and run/sample metadata")
+       print("Writing cell and run/sample metadata")
        manifest = _write_cell_metadata(manifest, adata, bundle_dir, exp_name=exp_name, droplet=droplet, nonmeta_obs_patterns = nonmeta_obs_patterns)
 
+    if write_genemeta:
+        print("Writing gene-wise metadata")
+        
+        genemeta_filename = f"{bundle_dir}/reference/gene_annotation.txt"
+        if nonmeta_var_patterns is None:
+            nonmeta_var_patterns = [ 'mean', 'counts', 'n_cells', 'highly_variable', 'dispersion' ]
+    
+        nonmeta_cols = [ x for x in adata.var.columns if any( [ y in x for y in  nonmeta_var_patterns ]) ]
+        genemeta_cols = [ x for x in adata.var.columns if x not in nonmeta_cols ]
+        
+        adata.var[genemeta_cols].to_csv(genemeta_filename, sep='\t', header=True, index=True, index_label='gene_id')
+        manifest = _set_manifest_value(manifest, 'gene_metadata', "reference/gene_annotation.txt")
+
     if raw_matrix_slot is not None:
-        print("Storing raw matrix")
+        print("Writing raw matrix")
         manifest = _write_matrix_from_adata(manifest, adata, slot=raw_matrix_slot, bundle_dir=bundle_dir, subdir='raw', gene_name_field=gene_name_field)        
     
     if filtered_matrix_slot is not None:
-        print("Storing filtered matrix")
+        print("Writing filtered matrix")
         manifest = _write_matrix_from_adata(manifest, adata, slot=filtered_matrix_slot, bundle_dir=bundle_dir, subdir='raw_filtered', gene_name_field=gene_name_field)         
     
     if normalised_matrix_slot is not None:
-        print("Storing normalised matrix")
+        print("Writing normalised matrix")
         manifest = _write_matrix_from_adata(manifest, adata, slot=normalised_matrix_slot, bundle_dir=bundle_dir, subdir='filtered_normalised', gene_name_field=gene_name_field)         
     
     if final_matrix_slot is not None:
-        print("Storing final matrix")
+        print("Writing final matrix")
         manifest = _write_matrix_from_adata(manifest, adata, slot=final_matrix_slot, bundle_dir=bundle_dir, subdir='final', gene_name_field=gene_name_field)         
        
     if write_obsms:
