@@ -4,6 +4,8 @@ In the Gene Expression team at the EBI we produce [Single Cell Expression Atlas]
 
 We sometimes encounter datasets without raw data, but where the user has an [annData](https://anndata.readthedocs.io/en/latest/) file containing expression matrices and derived results. The purpose of this repository is to provide a way of producing an analysis bundle directly from an annData object, allowing us (with some manual curation) to input these experiments. It will also be useful to simplify our own processes, since we can take the annData files now produced at the end of our analysis to produce a bundle in one step.
 
+This is the implementation of an [internal strategy document](https://docs.google.com/document/d/1sdy9iOHKXUz8dEv66v1Cu77626_w2KuJ2myapWIN5So/edit#heading=h.mdsu1vbn6spl).
+
 ## Analysis bundles
 
 ### What make analysis bundle?
