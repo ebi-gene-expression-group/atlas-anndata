@@ -19,6 +19,7 @@ import re
 @click.option('--exp-name', default='E-EXP-1234', help='Specify an Expression Atlas identifier that will be used for this experiment. If not set, a placeholder value E-EXP-1234 will be used and can be edited in the bundle later.')
 @click.option('--droplet', default=False, is_flag=True, help='Is this a droplet experiment?')
 @click.option('--exp-desc', default=None, help='Provide an experiment description file. If unspecified, the script will check for a slot called "experiment" in the .uns slot of the annData object, and use that to create a starting version of an IDF file.', type=click.Path(exists=True))
+@click.option('--software-versions-file', default=None, help="A 4-column TSV detailing software used in different stages of analysis",  type=click.Path(exists=True))
 @click.option('--write-cellmeta/--no-write-cellmeta', default=True, is_flag=True, help='Write a table of cell-wise metadata from .obs.')
 @click.option('--write-genemeta/--no-write-genemeta', default=True, is_flag=True, help='Write a table of gene-wise metadata from .var.')
 @click.option('--nonmeta-obs-patterns', type=CommaSeparatedText(), help='A comma-separated list of patterns to be used to exlude columns when writing cell metadata from .obs. Defaults to louvain,n_genes,n_counts,pct_,total_counts')
@@ -43,7 +44,7 @@ import re
 @click.option('--gene-name-field', default='gene_name', help='Field in .var where gene name (symbol) is stored.')
 @click.option('--write-anndata/--no--write--anndata', default=True, is_flag=True, help='Write the annData file itself to the bundle?')
 
-def create_bundle(anndata_file, bundle_dir, exp_name='E-EXP-1234', droplet=False, write_cellmeta=True, write_genemeta=True, nonmeta_var_patterns = None, nonmeta_obs_patterns=None, exp_desc=None, raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, write_marker_stats = True, marker_stats_layers=None, max_rank_for_stats=4,  atlas_style=True, gene_name_field='gene_name', write_anndata = True):
+def create_bundle(anndata_file, bundle_dir, exp_name='E-EXP-1234', droplet=False, write_cellmeta=True, write_genemeta=True, nonmeta_var_patterns = None, nonmeta_obs_patterns=None, exp_desc=None, software_versions_file=None,raw_matrix_slot=None, filtered_matrix_slot=None, normalised_matrix_slot=None, final_matrix_slot=None, write_obsms=True, obsms=None, write_clusters = True, clusters = None, clusters_field_pattern = 'louvain', default_clustering = None, write_markers = True, marker_clusterings=None, metadata_marker_fields=None, write_marker_stats = True, marker_stats_layers=None, max_rank_for_stats=4,  atlas_style=True, gene_name_field='gene_name', write_anndata = True):
     """Build a bundle directory compatible with Single Cell Expression Atlas (SCXA) build proceseses
    
     \b 
@@ -56,6 +57,11 @@ def create_bundle(anndata_file, bundle_dir, exp_name='E-EXP-1234', droplet=False
     adata = sc.read(anndata_file)
     adata.obs.dropna(how='all', axis=0, inplace=True)
     adata.obs.dropna(how='all', axis=1, inplace=True)
+
+    # Add anything we need to augment the adata
+
+    if software_versions_file is not None:
+        adata.uns['software_versions'] = pd.read_csv(software_versions_file, sep="\t")
 
     # For any genes without names, assign the ID
     genes_with_missing_names = list(adata.var_names[pd.isnull(adata.var[gene_name_field])])
@@ -132,8 +138,17 @@ def create_bundle(anndata_file, bundle_dir, exp_name='E-EXP-1234', droplet=False
     if write_markers:
         print("Writing markers to file")
         manifest = _write_markers_from_adata(manifest, adata, clusters = clusters, marker_clusterings = marker_clusterings, metadata_marker_fields = metadata_marker_fields, bundle_dir = bundle_dir, atlas_style = atlas_style, max_rank_for_stats = max_rank_for_stats, marker_stats_layers = marker_stats_layers, write_marker_stats = write_marker_stats)       
+
+    if 'software_versions' in adata.uns:
+        print("Writing provided software info to bundle")
+        software_versions_outfile = f"{bundle_dir}/software.tsv"
+        adata.uns['software_versions'].to_csv(software_versions_outfile, sep='\t', header=True, index=False)
+        manifest = _set_manifest_value(manifest, 'software_versions_file', 'software.tsv')
+
+    # Write anndata
  
     if write_anndata:
+
         print("Writing annData file to bundle")
         adata_filename = f"{exp_name}.project.h5ad"
         adata.write(f"{bundle_dir}/{adata_filename}")
