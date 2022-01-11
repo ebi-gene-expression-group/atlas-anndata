@@ -24,7 +24,7 @@ matrices:
     parameters:
         min_count: 3
   
-  - slot: filtered_normalised
+  - slot: normalised
     measure: counts
     cell_filtered: True
     gene_filtered: True
@@ -40,7 +40,7 @@ matrices:
 # the bundle
 
 cell_groups:
-  - slot: organism
+  - slot: organism_part
     kind: curation
     markers: False
 

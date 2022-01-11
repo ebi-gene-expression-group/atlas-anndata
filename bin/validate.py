@@ -41,7 +41,7 @@ def check_slot(adata, slot_type, slot_name):
         return slot_name in adata.obsm
 
     elif slot_type == 'cell_groups':
-        return slot_name in adata.obs_names
+        return slot_name in adata.obs.columns
 
     else:
         print(f"{slot_type} slot type not recognised", file=sys.stderr)
@@ -83,6 +83,8 @@ def validate_anndata(config_file, anndata_file):
                 if not check_slot(adata, slot_type, slot_def['slot']): 
                     print("%s entry %s not present in anndata file %s" % (slot_type, slot_def['slot'], anndata_file), file=sys.stderr)
                     sys.exit(1)
+
+    print(f"annData file successfully validated against config {config_file}")
 
 if __name__ == '__main__':
     validate_anndata()
