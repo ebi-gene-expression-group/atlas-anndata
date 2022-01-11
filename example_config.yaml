@@ -7,13 +7,30 @@ droplet: False
 # which case those are interpreted as explicit top-level slots in the anndata.
 
 matrices:
-  - type: counts
-    entries: 
-      - slot: raw.X
-      - slot: filtered
-        parameters:
-            min_count: 3
-      - slot: filtered_normalised
+  - slot: raw.X
+    measure: counts
+    cell_filtered: True
+    gene_filtered: False
+    normalised: False
+    log_transformed: False
+
+  - slot: filtered
+    measure: counts
+    cell_filtered: True
+    gene_filtered: True
+    normalised: False
+    log_transformed: False
+    
+    parameters:
+        min_count: 3
+  
+  - slot: filtered_normalised
+    measure: counts
+    cell_filtered: True
+    gene_filtered: True
+    normalised: True
+    log_transformed: True
+    
 
 # Cell groups, slots correspond to columns in .obs. Two categories:
 #     - curated: present before analysis. These will be output for curation.
@@ -23,33 +40,39 @@ matrices:
 # the bundle
 
 cell_groups:
-  - type: curation
-    entries:
-      - slot: organism
-  - type: analysis
-    entries:
-      - slot: louvain_resolution_0.7
-        parameters:
-          alorithm: louvain
-          resolution: 0.7
-          markers: True
-      - slot: louvain_resolution_1.0
-        parameters:
-          alorithm: louvain
-          resolution: 1.0
-          markers: True
+  - slot: organism
+    kind: curation
+    markers: False
+
+  - slot: louvain_resolution_0.7
+    kind: analysis
+    markers: True
+    parameters:
+      alorithm: louvain
+      resolution: 0.7
+      
+  - slot: louvain_resolution_1.0
+    kind: analysis
+    markers: True
+    parameters:
+      alorithm: louvain
+      resolution: 1.0
 
 # Dimension reductions, slots correspond to keys in .obsm
 
 dimension_reductions:
-  - type: umap
-    entries: 
-     - slot: X_umap_neighbors_n_neighbors_3
-       parameters:
-          n_neighbors: 3
-     - slot: X_umap_neighbors_n_neighbors_10
-       parameters:
-         n_neighbors: 5
-     - slot: X_umap_neighbors_n_neighbors_10
-       parameters:
-         n_neighbors: 10
+ - slot: X_umap_neighbors_n_neighbors_3
+   kind: umap
+   parameters:
+      n_neighbors: 3
+ 
+ - slot: X_umap_neighbors_n_neighbors_10
+   kind: umap
+   parameters:
+     n_neighbors: 5
+ 
+ - slot: X_umap_neighbors_n_neighbors_10
+   kind: umap
+   default: True
+   parameters:
+     n_neighbors: 10
