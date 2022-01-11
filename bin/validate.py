@@ -25,20 +25,27 @@ def validate_config(config):
         return False
     return True
 
-def check_slot(adata, slot_name, slot_type):
-    if slot_type == 'matrix':
+def check_slot(adata, slot_type, slot_name):
+
+    print(f"Checking for {slot_type} {slot_name}")
+
+    if slot_type == 'matrices':
         if slot_name == 'X':
-            return hasattr(adata, 'X'
+            return hasattr(adata, 'X')
         elif slot_name == 'raw.X':
             return hasattr(adata.raw, 'X')
-        else
+        else:
             return slot_name in adata.layers
     
-    elif slot_type == 'dimension_reduction':
+    elif slot_type == 'dimension_reductions':
         return slot_name in adata.obsm
 
-    elif slot_type == 'cell_group':
+    elif slot_type == 'cell_groups':
         return slot_name in adata.obs_names
+
+    else:
+        print(f"{slot_type} slot type not recognised", file=sys.stderr)
+        return False 
 
 schema_file = os.path.join(script_dir, '..', 'config_schema.yaml')
 schema = load_doc(schema_file) 
@@ -68,12 +75,14 @@ def validate_anndata(config_file, anndata_file):
     import scanpy as sc
     adata = sc.read(anndata_file)
 
-    for matrix_def in config['matrices']:
-         if matrix_def['slot'] == 'raw.X':
-            if not check_slot(adata, 'matrix', matrix_def['slot']) 
-                print("Matrix %s not present in anndata file %s" % (matrix_def['slot'], anndata_file), file=sys.stderr)
-                sys.exit(1) 
+    # Check that data is present at the locations indicated
 
+    for slot_type in [ 'matrices', 'cell_groups', 'dimension_reductions' ]:
+        if slot_type in config:
+            for slot_def in config[slot_type]:
+                if not check_slot(adata, slot_type, slot_def['slot']): 
+                    print("%s entry %s not present in anndata file %s" % (slot_type, slot_def['slot'], anndata_file), file=sys.stderr)
+                    sys.exit(1)
 
 if __name__ == '__main__':
     validate_anndata()
