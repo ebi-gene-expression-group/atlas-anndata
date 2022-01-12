@@ -81,7 +81,7 @@ def validate_anndata(config_file, anndata_file):
         if slot_type in config:
             for slot_def in config[slot_type]:
                 if not check_slot(adata, slot_type, slot_def['slot']): 
-                    print("%s entry %s not present in anndata file %s" % (slot_type, slot_def['slot'], anndata_file), file=sys.stderr)
+                    print(f"{slot_type} entry {slot_def['slot']} not present in anndata file {anndata_file}")
                     sys.exit(1)
 
     print(f"annData file successfully validated against config {config_file}")
