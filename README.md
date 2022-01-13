@@ -70,6 +70,37 @@ marker_stats	tpm_filtered_stats.csv	tpm_filtered
 cluster_memberships	clusters_for_bundle.txt
 ```
 
+## Producing an analysis bundle from arbitrary annData files
+
+### 1. Produce a YAML format annData description file
+
+To produce a valid bundle from an anndata file, we need to describe that file, outlining which of the cell/ gene metadata columns, matrices,dimension reductions etc should be included. This is done via a YAML-format config file (see [example]{example_config.yaml}).
+
+A starting configuration can be produced directly from the annData file:
+
+```
+> config_from_anndata.py project.h5ad test_config_from_anndata.yaml --exp-name E-MTAB=1234 --droplet  
+``` 
+
+This will produce a config file at the specified locations. This script will also request other information not present in the annData object, such as an experiment identifier to use. There is an '---atlas-style' flag that will cause some additional information we completed automatically based on conventions we use to fill annData objects, but this is unlikely to be useful to external users.
+
+### 2. Check and modify the config file
+
+The config __should be modified__ according to your knowledge of the experiment, for example to highlight what treatments have been applied to the matrix in .X. 
+ 
+### 3. Validate config YAML
+
+Having edited the config YAML, you should validate it against a schema we provide and the annData file itself. We can use this mechanism to ensure that inputs match the expectations of Single Cell Expression Atlas. 
+
+```
+validate.py test_config_from_anndata.yaml project.h5ad
+```
+
+(subsequent steps will also run this, but running it yourself will flag any issues early)
+
+### 4. Run bundle creation based on the supplied configuration
+
+
 ## Command help
 
 Here is the description of options for the main bundle generation script:
