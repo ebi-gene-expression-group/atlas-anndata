@@ -82,7 +82,7 @@ def write_config(anndata_file, config_file, atlas_style = False, exp_name = None
             obs_entry['markers'] = True
             obs_entry['markers_slot'] = markers_slot
         else:
-            obs_entry['markers_slot'] = False    
+            obs_entry['markers'] = False    
 
         config['cell_groups'].append(obs_entry)
    

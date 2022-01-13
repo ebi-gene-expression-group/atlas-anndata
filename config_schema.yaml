@@ -23,6 +23,8 @@ properties:
                     type: boolean
                 log_transformed: 
                     type: boolean
+                scaled: 
+                    type: boolean
                 parameters:
                     type: object
             required: [ slot, measure, gene_filtered, normalised, log_transformed ]
