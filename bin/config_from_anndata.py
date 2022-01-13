@@ -16,18 +16,58 @@ boolean = f"{missing} with a boolean"
 @click.argument('anndata_file', type=click.Path(exists=True))
 @click.argument('config_file', type=click.Path())
 @click.option('--atlas-style', default=False, is_flag=True, help='Assume the tight conventions from SCXA, e.g. on .obsm slot naming?')
+@click.option('--exp-name', required=True, help='Specify an Expression Atlas identifier that will be used for this experiment. If not set, a placeholder value E-EXP-1234 will be used and can be edited in the bundle later.')
+@click.option('--droplet', default=False, is_flag=True, help='Is this a droplet experiment?')
 
-def write_config(anndata_file, config_file, atlas_style = False):
+def write_config(anndata_file, config_file, atlas_style = False, exp_name = None, droplet = False):
     
     adata = sc.read(anndata_file)
 
     config = {
-        'exp-name': string,
-        'droplet': boolean,
+        'exp-name': exp_name,
+        'droplet': droplet,
         'matrices': [],
         'cell_groups': [],
         'dimension_reductions': list()
     }
+
+    # Describe the matrices
+
+    matrix_slots = []
+
+    if hasattr(adata, 'raw') and hasattr(adata.raw, 'X'):
+        matrix_slots.append('raw.X')
+
+    matrix_slots = matrix_slots + list(adata.layers.keys())
+    matrix_slots.append('X')
+
+    for ms in matrix_slots:
+        matrix_entry = {
+            'slot': ms,
+            'measure': 'counts',
+            'cell_filtered': True,
+            'gene_filtered': False,
+            'normalised': False,
+            'log_transformed': False,
+            'scaled': True,
+            'parameters': {}
+        }
+        
+        # Use assumptions we can rely on for Atlas
+
+        if atlas_style:
+            if ms in ['filtered', 'normalised', 'X' ]:
+                matrix_entry['gene_filtered'] = True
+            if ms in ['normalised', 'X' ]:
+                matrix_entry['normalised'] = True
+            if ms == 'X':
+                matrix_entry['log_transformed'] = True
+                if droplet:
+                    matrix_entry['scaled'] = True
+
+        config['matrices'].append(matrix_entry)
+
+    # Describe cell-wise metadata columns
 
     for obs in adata.obs.columns:
 
@@ -45,7 +85,9 @@ def write_config(anndata_file, config_file, atlas_style = False):
             obs_entry['markers_slot'] = False    
 
         config['cell_groups'].append(obs_entry)
-    
+   
+    # Describe dimension reductions stored in .obsm
+ 
     for obsm in adata.obsm.keys():
         obsm_entry = {
             'slot': obsm,
