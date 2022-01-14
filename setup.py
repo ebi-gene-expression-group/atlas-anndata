@@ -8,7 +8,7 @@ setuptools.setup(
     version="0.0.1",
     author="Jonathan Manning",
     author_email="jmanning@ebi.ac.uk",
-    description="Functions for preparing annData files for experiment inclusion in Single-cell Expression Atlas"
+    description="Functions for preparing annData files for experiment inclusion in Single cell Expression Atlas",
     license="Apache Software License",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -21,11 +21,16 @@ setuptools.setup(
         "Topic :: Scientific/Engineering :: Bio-Informatics"
     ],
     include_package_data=True,
+    scripts=[
+        'bin/validata_anndata_from_config',
+        'bin/make_starting_config_from_anndata',
+        'bin/make_bundle_from_anndata',
+    ],
     install_requires=[
         "scanpy",
-        "yaml",
+        "PyYAML",
         "click",
-        "jsonschema"
+        "jsonschema",
     ],
     python_requires=">=3.6",
 )
