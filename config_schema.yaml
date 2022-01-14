@@ -1,0 +1,70 @@
+id: atlas-anndata-bundle
+description: "A full decription of an annData file presented as a candidate for bundling and ingestion into Single-cell Expression Atlas."
+properties:
+    exp-name: 
+        type: string
+    droplet:
+        type: boolean
+    matrices:
+        type: array
+        minItems: 1
+        items:
+            type: object
+            properties:
+                slot:
+                    type: string
+                measure: 
+                    type: string
+                gene_filtered: 
+                    type: boolean
+                cell_filtered: 
+                    type: boolean
+                normalised: 
+                    type: boolean
+                log_transformed: 
+                    type: boolean
+                scaled: 
+                    type: boolean
+                parameters:
+                    type: object
+            required: [ slot, measure, gene_filtered, normalised, log_transformed ]
+            additionalProperties: False
+
+    cell_groups:
+        type: array
+        items:
+            type: object
+            properties:
+                slot:
+                    type: string
+                default:
+                    type: boolean
+                kind: 
+                    type: string
+                    pattern: "^(curation|analysis)$"
+                markers:
+                    type: boolean
+                parameters:
+                    type: object
+            required: [ slot, kind, markers ]
+
+    dimension_reductions:
+        type: array
+        items:
+            type: object
+            properties:
+                slot:
+                    type: string
+                default:
+                    type: boolean
+                kind: 
+                    type: string
+                    pattern: "^(tsne|umap|pca)$"
+                parameters:
+                    type: object
+            required: [ slot, kind ]
+     
+required:
+  - matrices
+  - exp-name
+  - droplet
