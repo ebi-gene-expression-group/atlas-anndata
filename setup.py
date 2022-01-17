@@ -22,7 +22,7 @@ setuptools.setup(
     ],
     include_package_data=True,
     scripts=[
-        'bin/validata_anndata_from_config',
+        'bin/validate_anndata_with_config',
         'bin/make_starting_config_from_anndata',
         'bin/make_bundle_from_anndata',
     ],

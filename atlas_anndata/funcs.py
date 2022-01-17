@@ -6,6 +6,7 @@ from yaml import load, dump, Loader, Dumper
 import os
 import sys
 import re
+import scanpy as sc
 
 schema_file = pkg_resources.resource_filename('atlas_anndata', 'config_schema.yaml')
 
@@ -80,7 +81,7 @@ def validate_anndata_with_config(config_file, anndata_file):
                     sys.exit(1)
 
     print(f"annData file successfully validated against config {config_file}")
-    return (config, anndata)
+    return (config, adata)
 
 def obs_markers(adata, obs):
     markers_slot = f"markers_{obs}"
@@ -152,3 +153,84 @@ def string_to_numeric(numberstring):
     else:
         return float(numberstring)
 
+
+def make_starting_config_from_anndata(anndata_file, config_file, atlas_style = False, exp_name = None, droplet = False):
+
+    adata = sc.read(anndata_file)
+
+    config = {
+        'exp-name': exp_name,
+        'droplet': droplet,
+        'matrices': [],
+        'cell_groups': [],
+        'dimension_reductions': list()
+    }
+
+    # Describe the matrices
+
+    matrix_slots = []
+
+    if hasattr(adata, 'raw') and hasattr(adata.raw, 'X'):
+        matrix_slots.append('raw.X')
+
+    matrix_slots = matrix_slots + list(adata.layers.keys())
+    matrix_slots.append('X')
+
+    for ms in matrix_slots:
+        matrix_entry = {
+            'slot': ms,
+            'measure': 'counts',
+            'cell_filtered': True,
+            'gene_filtered': False,
+            'normalised': False,
+            'log_transformed': False,
+            'scaled': True,
+            'parameters': {}
+        }
+
+        # Use assumptions we can rely on for Atlas
+
+        if atlas_style:
+            if ms in ['filtered', 'normalised', 'X' ]:
+                matrix_entry['gene_filtered'] = True
+            if ms in ['normalised', 'X' ]:
+                matrix_entry['normalised'] = True
+            if ms == 'X':
+                matrix_entry['log_transformed'] = True
+                if droplet:
+                    matrix_entry['scaled'] = True
+
+        config['matrices'].append(matrix_entry)
+
+    # Describe cell-wise metadata columns
+
+    for obs in adata.obs.columns:
+
+        obs_entry = {
+            'slot': obs,
+            'kind': slot_kind_from_name('cell_groups', obs),
+            'parameters': extract_parameterisation('cell_groups', obs, atlas_style)
+        }
+
+        markers_slot = obs_markers(adata, obs)
+        if markers_slot:
+            obs_entry['markers'] = True
+            obs_entry['markers_slot'] = markers_slot
+        else:
+            obs_entry['markers'] = False
+
+        config['cell_groups'].append(obs_entry)
+
+    # Describe dimension reductions stored in .obsm
+
+    for obsm in adata.obsm.keys():
+        obsm_entry = {
+            'slot': obsm,
+            'kind': slot_kind_from_name('dimension_reductions', obsm),
+            'parameters': extract_parameterisation('dimension_reductions', obsm, atlas_style)
+        }
+
+        config['dimension_reductions'].append(obsm_entry)
+
+    with open(config_file, 'w') as file:
+        documents = yaml.dump(config, file)

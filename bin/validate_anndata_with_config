@@ -13,9 +13,8 @@ from atlas_anndata import validate_anndata_with_config
 @click.argument('config_file', type=click.Path(exists=True))
 @click.argument('anndata_file', type=click.Path(exists=True))
 
-def validate_anndata(config_file, anndata_file):
-
-    validate_anndata_with_config(config_file, anndata_file)
+def validate_anndata(*args,**kwargs):
+    validate_anndata_with_config(*args, **kwargs)
 
 if __name__ == '__main__':
     validate_anndata()
