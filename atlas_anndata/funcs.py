@@ -9,6 +9,8 @@ import re
 import scanpy as sc
 
 schema_file = pkg_resources.resource_filename('atlas_anndata', 'config_schema.yaml')
+example_config_file = pkg_resources.resource_filename('atlas_anndata', 'config_schema.yaml')
+scxa_h5ad_test = pkg_resources.resource_filename('atlas_anndata', 'data/E-MTAB-6077.project.h5ad')
 
 def load_doc(filename):
     with open(filename, "r") as stream:
