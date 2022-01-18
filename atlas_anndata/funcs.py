@@ -121,6 +121,15 @@ def validate_anndata_with_config(config_file, anndata_file):
     return (config, adata)
 
 def obs_markers(adata, obs):
+
+    """
+    Check if a particular cell metadata field has an associated marker set
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> obs_markers(adata, 'louvain_resolution_1.0')
+    'markers_louvain_resolution_1.0'
+    """
+
     markers_slot = f"markers_{obs}"
 
     if markers_slot in adata.uns.keys():
@@ -129,6 +138,14 @@ def obs_markers(adata, obs):
         return False
 
 def slot_kind_from_name(slot_type, slot_name):
+
+    """
+    Try to infer the kind/sub-type of a slot by comparing to known patterns
+    
+
+    >>> slot_kind_from_name('dimension_reductions', 'X_tsne_blah')
+    'tsne'
+    """
 
     from atlas_anndata import MISSING_STRING
 
@@ -162,10 +179,16 @@ def slot_kind_from_name(slot_type, slot_name):
 
     return kind
 
-# For Atlas exps there's some semantics to exploit in some slot names
-
 def extract_parameterisation(slot_type, slot_name, atlas_style = False):
-    
+   
+    """
+    For annData objects from Single Cell Expression Atlas, infer paramerisation
+    from slot naming.
+
+    >>> extract_parameterisation('cell_groups', 'louvain_resolution_1.0', atlas_style = True)
+    {'resolution': 1.0}
+    """
+ 
     parameters = {}
 
     if atlas_style:
@@ -174,7 +197,7 @@ def extract_parameterisation(slot_type, slot_name, atlas_style = False):
             m = re.search(r'X_(umap|tsne|pca)_(.*)_(.*)', slot_name.replace('umap_neighbors', 'umap'))
             if m:
                 parameters[m.group(2)] = string_to_numeric(m.group(3)) 
-        
+
         elif slot_type == 'cell_groups':
             m = re.search(r'(louvain|leiden)_(.*)_(.*)', slot_name)
             if m:
@@ -182,9 +205,16 @@ def extract_parameterisation(slot_type, slot_name, atlas_style = False):
 
     return parameters
 
-# Convert to int or float
 
 def string_to_numeric(numberstring):
+    
+    """
+    Convert strings to int or float
+    
+    >>> string_to_numeric('1.0')
+    1.0
+    """
+
     if numberstring.isdigit():
         return int(numberstring)
     else:
@@ -194,9 +224,11 @@ def string_to_numeric(numberstring):
 def make_starting_config_from_anndata(anndata_file, config_file, atlas_style = False, exp_name = None, droplet = False):
 
     """
-    Make a yaml-format configuration file as a starting point for manual editing, from the content of a provided 
+    Make a yaml-format configuration file as a starting point for manual
+    editing, from the content of a provided annData file.
+    
+    >>> make_starting_config_from_anndata(scxa_h5ad_test, '/tmp/foo.yaml')
     """
-
 
     adata = sc.read(anndata_file)
 
