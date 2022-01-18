@@ -9,7 +9,7 @@ import re
 import scanpy as sc
 
 schema_file = pkg_resources.resource_filename('atlas_anndata', 'config_schema.yaml')
-example_config_file = pkg_resources.resource_filename('atlas_anndata', 'config_schema.yaml')
+example_config_file = pkg_resources.resource_filename('atlas_anndata', 'example_config.yaml')
 scxa_h5ad_test = pkg_resources.resource_filename('atlas_anndata', 'data/E-MTAB-6077.project.h5ad')
 
 def load_doc(filename):
@@ -21,6 +21,14 @@ def load_doc(filename):
 
 def validate_config(config):
 
+    """Validate a config against our schema
+
+
+    >>> egconfig = load_doc(example_config_file)
+    >>> validate_config(egconfig)
+    True
+    """
+
     schema = load_doc(schema_file) 
 
     try:
@@ -31,6 +39,15 @@ def validate_config(config):
     return True
 
 def check_slot(adata, slot_type, slot_name):
+
+    """Check for a slot in an anndata object
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> check = check_slot(adata, 'matrices', 'X')
+    Checking for matrices X
+    >>> check
+    True
+    """
 
     print(f"Checking for {slot_type} {slot_name}")
 
@@ -53,6 +70,24 @@ def check_slot(adata, slot_type, slot_name):
         return False 
 
 def validate_anndata_with_config(config_file, anndata_file):
+
+    """Validate an anndata against a config
+
+    >>> config, adata = validate_anndata_with_config(example_config_file, scxa_h5ad_test) # doctest:+ELLIPSIS 
+    Validating .../atlas_anndata/example_config.yaml against .../atlas_anndata/config_schema.yaml
+    Config YAML file successfully validated
+    Now checking config against anndata file
+    Checking for matrices raw.X
+    Checking for matrices filtered
+    Checking for matrices normalised
+    Checking for cell_groups organism_part
+    Checking for cell_groups louvain_resolution_0.7
+    Checking for cell_groups louvain_resolution_1.0
+    Checking for dimension_reductions X_umap_neighbors_n_neighbors_3
+    Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
+    Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
+    annData file successfully validated against config ...
+    """
 
     config = load_doc(config_file)
     
@@ -158,6 +193,11 @@ def string_to_numeric(numberstring):
 
 def make_starting_config_from_anndata(anndata_file, config_file, atlas_style = False, exp_name = None, droplet = False):
 
+    """
+    Make a yaml-format configuration file as a starting point for manual editing, from the content of a provided 
+    """
+
+
     adata = sc.read(anndata_file)
 
     config = {
@@ -236,3 +276,7 @@ def make_starting_config_from_anndata(anndata_file, config_file, atlas_style = F
 
     with open(config_file, 'w') as file:
         documents = yaml.dump(config, file)
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
