@@ -1,0 +1,3 @@
+include atlas_anndata/config_schema.yaml
+include atlas_anndata/example_config.yaml
+include atlas_anndata/data/E-MTAB-6077.project.h5ad

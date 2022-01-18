@@ -11,6 +11,8 @@ properties:
         items:
             type: object
             properties:
+                name:
+                    type: string
                 slot:
                     type: string
                 measure: 
