@@ -14,7 +14,12 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: "3.8"
-      - name: flake8 Lint
+      - name: flake8 Lint .py files
         uses: py-actions/flake8@v2
         with:
           path: "."
+      - name: flake8 Lint scripts
+        uses: py-actions/flake8@v2
+        with:
+          path: "bin"
+          args: '--filename="*"'
