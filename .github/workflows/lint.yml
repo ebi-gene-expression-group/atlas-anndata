@@ -18,9 +18,9 @@ jobs:
         uses: py-actions/flake8@v2
         with:
           path: "."
-          args: '-v'
+          args: '-vv'
       - name: flake8 Lint scripts
         uses: py-actions/flake8@v2
         with:
           path: "bin"
-          args: '--filename="*" -v'
+          args: '--filename="*" -vv'
