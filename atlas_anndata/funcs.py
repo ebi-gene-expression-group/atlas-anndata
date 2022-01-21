@@ -6,6 +6,13 @@ import sys
 import re
 import scanpy as sc
 import pandas as pd
+import pathlib
+import shutil
+from pathlib import Path
+import collections
+from collections import OrderedDict
+import os
+import gzip
 
 schema_file = pkg_resources.resource_filename(
     "atlas_anndata", "config_schema.yaml"
@@ -354,13 +361,101 @@ def make_starting_config_from_anndata(
 def make_bundle_from_anndata(
     anndata_file,
     anndata_description_yaml,
+    bundle_dir,
     gene_name_field=None,
+    **kwargs,
 ):
     # Make sure the config matches the schema and anndata
 
     config, adata = validate_anndata_with_config(
         anndata_description_yaml, anndata_file
     )
+
+    # Clear and create the output location
+
+    if Path(bundle_dir).is_dir():
+        shutil.rmtree(bundle_dir)
+
+    pathlib.Path(f"{bundle_dir}").mkdir(parents=True)
+
+    # Initialise the manifest
+
+    manifest = read_file_manifest(bundle_dir)
+
+    # Write matrices
+
+    write_matrices_from_adata(
+        manifest=manifest,
+        bundle_dir=bundle_dir,
+        adata=adata,
+        config=config,
+        gene_name_field=gene_name_field,
+    )
+
+
+def write_matrices_from_adata(
+    manifest, bundle_dir, adata, config, gene_name_field
+):
+    for slot_def in config["matrices"]["entries"]:
+        write_matrix_from_adata(
+            manifest=manifest,
+            adata=adata,
+            slot=slot_def["slot"],
+            bundle_dir=bundle_dir,
+            subdir=slot_def["name"],
+            gene_name_field=gene_name_field,
+        )
+
+
+def write_matrix_from_adata(
+    manifest, adata, slot, bundle_dir, subdir, gene_name_field="gene_name"
+):
+
+    layer = None
+    use_raw = False
+
+    if "raw." in slot:
+        use_raw = True
+        slot = slot.replace("raw.", "")
+
+    if slot != "X":
+        layer = slot
+
+    # Make sure we have a gene name filled for every gene
+
+    fill_gene_names(adata, gene_name_field)
+
+    # Create the subdir
+
+    pathlib.Path(bundle_dir, subdir).mkdir(parents=True, exist_ok=True)
+    write_mtx(
+        adata,
+        fname_prefix=f"{bundle_dir}/{subdir}/",
+        use_raw=use_raw,
+        use_layer=layer,
+        var=[gene_name_field],
+    )
+
+    for filename in ["matrix.mtx", "barcodes.tsv", "genes.tsv"]:
+        subfile = f"{subdir}/{filename}"
+        filepath = f"{bundle_dir}/{subfile}"
+        with open(filepath, "rb") as f_in, gzip.open(
+            "%s.gz" % filepath, "wb"
+        ) as f_out:
+            f_out.writelines(f_in)
+        os.remove(filepath)
+
+    manifest = _set_manifest_value(
+        manifest, "mtx_matrix_content", f"{subdir}/matrix.mtx.gz", subdir
+    )
+    manifest = _set_manifest_value(
+        manifest, "mtx_matrix_cols", f"{subdir}/barcodes.tsv.gz", subdir
+    )
+    manifest = _set_manifest_value(
+        manifest, "mtx_matrix_rows", f"{subdir}/genes.mtx.gz", subdir
+    )
+
+    return manifest
 
 
 def create_bundle(
@@ -416,7 +511,7 @@ def create_bundle(
     pathlib.Path(f"{bundle_dir}/mage-tab").mkdir(parents=True)
     pathlib.Path(f"{bundle_dir}/reference").mkdir()
 
-    manifest = _read_file_manifest(bundle_dir)
+    manifest = read_file_manifest(bundle_dir)
 
     if write_cellmeta:
         print("Writing cell and run/sample metadata")
@@ -1005,7 +1100,7 @@ def _make_markers_summary(
     ]
 
 
-def _read_file_manifest(bundle_dir):
+def read_file_manifest(bundle_dir):
     manifest_file = f"{bundle_dir}/MANIFEST"
     manifest = OrderedDict()
 
@@ -1061,57 +1156,6 @@ def fill_gene_names(adata, gene_name_field="gene_name"):
         adata.var[gene_name_field] = adata.var_names
 
     return adata
-
-
-def _write_matrix_from_adata(
-    manifest, adata, slot, bundle_dir, subdir, gene_name_field="gene_name"
-):
-
-    layer = None
-    use_raw = False
-
-    if "raw." in slot:
-        use_raw = True
-        slot = slot.replace("raw.", "")
-
-    if slot != "X":
-        layer = slot
-
-    # Make sure we have a gene name filled for every gene
-
-    fill_gene_names(adata, gene_name_field)
-
-    # Create the subdir
-
-    pathlib.Path(bundle_dir, subdir).mkdir(parents=True, exist_ok=True)
-    write_mtx(
-        adata,
-        fname_prefix=f"{bundle_dir}/{subdir}/",
-        use_raw=use_raw,
-        use_layer=layer,
-        var=[gene_name_field],
-    )
-
-    for filename in ["matrix.mtx", "barcodes.tsv", "genes.tsv"]:
-        subfile = f"{subdir}/{filename}"
-        filepath = f"{bundle_dir}/{subfile}"
-        with open(filepath, "rb") as f_in, gzip.open(
-            "%s.gz" % filepath, "wb"
-        ) as f_out:
-            f_out.writelines(f_in)
-        os.remove(filepath)
-
-    manifest = _set_manifest_value(
-        manifest, "mtx_matrix_content", f"{subdir}/matrix.mtx.gz", subdir
-    )
-    manifest = _set_manifest_value(
-        manifest, "mtx_matrix_cols", f"{subdir}/barcodes.tsv.gz", subdir
-    )
-    manifest = _set_manifest_value(
-        manifest, "mtx_matrix_rows", f"{subdir}/genes.mtx.gz", subdir
-    )
-
-    return manifest
 
 
 def write_mtx(
