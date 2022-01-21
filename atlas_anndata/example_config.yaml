@@ -7,7 +7,9 @@ droplet: False
 # which case those are interpreted as explicit top-level slots in the anndata.
 
 matrices:
+  entries:
   - slot: raw.X
+    name: raw
     measure: counts
     cell_filtered: True
     gene_filtered: False
@@ -15,6 +17,7 @@ matrices:
     log_transformed: False
 
   - slot: filtered
+    name: filtered
     measure: counts
     cell_filtered: True
     gene_filtered: True
@@ -22,9 +25,10 @@ matrices:
     log_transformed: False
     
     parameters:
-        min_count: 3
+      min_count: 3
   
   - slot: normalised
+    name: normalised
     measure: counts
     cell_filtered: True
     gene_filtered: True
@@ -40,6 +44,7 @@ matrices:
 # the bundle
 
 cell_groups:
+  entries:
   - slot: organism_part
     kind: curation
     markers: False
@@ -61,18 +66,19 @@ cell_groups:
 # Dimension reductions, slots correspond to keys in .obsm
 
 dimension_reductions:
- - slot: X_umap_neighbors_n_neighbors_3
-   kind: umap
-   parameters:
+  entries:
+  - slot: X_umap_neighbors_n_neighbors_3
+    kind: umap
+    parameters:
       n_neighbors: 3
  
- - slot: X_umap_neighbors_n_neighbors_10
-   kind: umap
-   parameters:
-     n_neighbors: 5
+  - slot: X_umap_neighbors_n_neighbors_10
+    kind: umap
+    parameters:
+      n_neighbors: 5
  
- - slot: X_umap_neighbors_n_neighbors_10
-   kind: umap
-   default: True
-   parameters:
+  - slot: X_umap_neighbors_n_neighbors_10
+    kind: umap
+    default: True
+    parameters:
      n_neighbors: 10

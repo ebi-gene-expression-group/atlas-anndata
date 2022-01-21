@@ -1,25 +1,25 @@
 #!/usr/bin/env python
 
 import click
-from pathlib import Path
-import shutil
-import scanpy as sc
-import scanpy_scripts as ss
-import pathlib
-import pandas as pd
-import gzip
-import os
-from collections import OrderedDict
 from scanpy_scripts.click_utils import CommaSeparatedText
-import re
-from atlas_anndata import validate_anndata_with_config
-import math
 
 
 @click.command()
 @click.argument("anndata_file", type=click.Path(exists=True))
 @click.argument("anndata_description_yaml", type=click.Path(exists=True))
 @click.argument("bundle_dir", type=click.Path(dir_okay=True))
+@click.option(
+    "--write-cellmeta/--no-write-cellmeta",
+    default=True,
+    is_flag=True,
+    help="Write a table of cell-wise metadata from .obs.",
+)
+@click.option(
+    "--write-genemeta/--no-write-genemeta",
+    default=True,
+    is_flag=True,
+    help="Write a table of gene-wise metadata from .var.",
+)
 @click.option(
     "--exp-desc",
     default=None,
@@ -39,36 +39,6 @@ import math
         " analysis"
     ),
     type=click.Path(exists=True),
-)
-@click.option(
-    "--write-cellmeta/--no-write-cellmeta",
-    default=True,
-    is_flag=True,
-    help="Write a table of cell-wise metadata from .obs.",
-)
-@click.option(
-    "--write-genemeta/--no-write-genemeta",
-    default=True,
-    is_flag=True,
-    help="Write a table of gene-wise metadata from .var.",
-)
-@click.option(
-    "--nonmeta-obs-patterns",
-    type=CommaSeparatedText(),
-    help=(
-        "A comma-separated list of patterns to be used to exlude columns when"
-        " writing cell metadata from .obs. Defaults to"
-        " louvain,n_genes,n_counts,pct_,total_counts"
-    ),
-)
-@click.option(
-    "--nonmeta-var-patterns",
-    type=CommaSeparatedText(),
-    help=(
-        "A comma-separated list of patterns to be used to exlude columns when"
-        " writing gene metadata from .obs. Defaults to"
-        " mean,counts,n_cells,highly_variable,dispersion"
-    ),
 )
 @click.option(
     "--raw-matrix-slot",
