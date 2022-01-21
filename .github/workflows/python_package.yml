@@ -1,4 +1,4 @@
-name: Lint
+name: Python package
 
 on: [push, pull_request]
 
@@ -24,3 +24,6 @@ jobs:
         with:
           path: "bin"
           args: '--filename="*" -vv'
+      - name: Run function tests
+        run: |
+          python atlas_anndata/funcs.py
