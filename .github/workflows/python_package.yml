@@ -24,6 +24,9 @@ jobs:
         with:
           path: "bin"
           args: '--filename="*" -vv'
+      - name: Install dependencies
+        run: |
+          pip install .
       - name: Run function tests
         run: |
           python atlas_anndata/funcs.py
