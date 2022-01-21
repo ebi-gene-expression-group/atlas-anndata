@@ -203,8 +203,7 @@ def extract_parameterisation(slot_type, slot_name, atlas_style=False):
     >>> extract_parameterisation(
     ... 'cell_groups',
     ... 'louvain_resolution_1.0',
-    ... atlas_style = True
-    )
+    ... atlas_style = True )
     {'resolution': 1.0}
     """
 
