@@ -84,7 +84,7 @@ def validate_anndata_with_config(config_file, anndata_file):
     >>> config, adata = validate_anndata_with_config(
     ... example_config_file,
     ... scxa_h5ad_test
-    ...) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    ... ) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
     Validating .../atlas_anndata/example_config.yaml against
     .../atlas_anndata/config_schema.yaml
     Config YAML file successfully validated
@@ -203,8 +203,7 @@ def extract_parameterisation(slot_type, slot_name, atlas_style=False):
     >>> extract_parameterisation(
     ... 'cell_groups',
     ... 'louvain_resolution_1.0',
-    ... atlas_style = True
-    )
+    ... atlas_style = True )
     {'resolution': 1.0}
     """
 
@@ -341,4 +340,4 @@ def make_starting_config_from_anndata(
 if __name__ == "__main__":
     import doctest
 
-    doctest.testmod()
+    sys.exit(doctest.testmod(verbose=True)[0])
