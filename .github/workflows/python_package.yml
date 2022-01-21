@@ -30,3 +30,9 @@ jobs:
       - name: Run function tests
         run: |
           python atlas_anndata/funcs.py
+      - name: Test CLI: config creation from annData
+        run: |
+          make_starting_config_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml --atlas-style --exp-name E-MTAB=1234 --droplet
+      - name: Test CLI: Validate annData against schema and config
+        run: |
+          validate_anndata_with_config test_config_from_anndata.yaml atlas_anndata/data/E-MTAB-6077.project.h5ad
