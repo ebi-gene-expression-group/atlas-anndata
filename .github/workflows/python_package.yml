@@ -27,9 +27,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install .
-      - name: ls python dir
-        run: |
-          ls /opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/atlas_anndata/
       - name: Run function tests
         run: |
           python atlas_anndata/funcs.py

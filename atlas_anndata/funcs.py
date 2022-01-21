@@ -340,4 +340,4 @@ def make_starting_config_from_anndata(
 if __name__ == "__main__":
     import doctest
 
-    sys.exit(doctest.testmod()[0])
+    sys.exit(doctest.testmod(verbose=True)[0])
