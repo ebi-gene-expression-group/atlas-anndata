@@ -84,7 +84,7 @@ def validate_anndata_with_config(config_file, anndata_file):
     >>> config, adata = validate_anndata_with_config(
     ... example_config_file,
     ... scxa_h5ad_test
-    ...) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    ... ) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
     Validating .../atlas_anndata/example_config.yaml against
     .../atlas_anndata/config_schema.yaml
     Config YAML file successfully validated
