@@ -3,7 +3,7 @@ name: Python package
 on: [push, pull_request]
 
 jobs:
-  lint:
+  lint_and_build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install .
+      - name: ls python dir
+        run: |
+          ls /opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/atlas_anndata/data
       - name: Run function tests
         run: |
           python atlas_anndata/funcs.py
