@@ -50,7 +50,7 @@ properties:
                             type: boolean
                         kind: 
                             type: string
-                            pattern: "^(curation|analysis)$"
+                            pattern: "^(curation|analysis|clustering)$"
                         markers:
                             type: boolean
                         parameters:

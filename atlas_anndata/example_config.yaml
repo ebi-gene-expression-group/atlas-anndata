@@ -48,17 +48,20 @@ cell_groups:
   - slot: organism_part
     kind: curation
     markers: False
+    default: False
 
   - slot: louvain_resolution_0.7
-    kind: analysis
+    kind: clustering
     markers: True
+    default: False
     parameters:
       alorithm: louvain
       resolution: 0.7
       
   - slot: louvain_resolution_1.0
-    kind: analysis
+    kind: clustering
     markers: True
+    default: True
     parameters:
       alorithm: louvain
       resolution: 1.0

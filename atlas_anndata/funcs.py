@@ -5,6 +5,7 @@ import yaml
 import sys
 import re
 import scanpy as sc
+import scanpy_scripts as ss
 import pandas as pd
 import pathlib
 import shutil
@@ -13,6 +14,7 @@ import collections
 from collections import OrderedDict
 import os
 import gzip
+import math
 
 schema_file = pkg_resources.resource_filename(
     "atlas_anndata", "config_schema.yaml"
@@ -185,13 +187,14 @@ def slot_kind_from_name(slot_type, slot_name):
     elif slot_type == "cell_groups":
         kind = "curation"
         search_map = {
-            "leiden": "analysis",
+            "leiden": "clustering",
+            "cluster": "clustering",
             "log1p": "analysis",
             "^n_": "analysis",
             "total_": "analysis",
             "pct_": "analysis",
             "mito": "analysis",
-            "louvain": "analysis",
+            "louvain": "clustering",
         }
     elif slot_type == "gene_meta":
         kind = "curation"
@@ -330,6 +333,7 @@ def make_starting_config_from_anndata(
             "parameters": extract_parameterisation(
                 "cell_groups", obs, atlas_style
             ),
+            "default": False,
         }
 
         markers_slot = obs_markers(adata, obs)
@@ -340,6 +344,32 @@ def make_starting_config_from_anndata(
             obs_entry["markers"] = False
 
         config["cell_groups"]["entries"].append(obs_entry)
+
+    # Find the groups in obs that correspond to clusterings
+    config_obs = [x["slot"] for x in config["cell_groups"]["entries"]]
+    cluster_obs = [
+        x["slot"]
+        for x in config["cell_groups"]["entries"]
+        if x["kind"] == "clustering"
+    ]
+
+    cluster_obs = list(
+        select_clusterings(
+            adata, clusters=cluster_obs, atlas_style=atlas_style
+        ).keys()
+    )
+
+    # Try to set a default clustering
+    if atlas_style and "louvain_resolution_1.0" in cluster_obs:
+        default_clustering = "louvain_resolution_1.0"
+    else:
+        default_clustering = cluster_obs[
+            math.floor((len(cluster_obs) - 1) / 2)
+        ]
+
+    config["cell_groups"]["entries"][config_obs.index(default_clustering)][
+        "default"
+    ] = True
 
     # Describe dimension reductions stored in .obsm
 
@@ -392,6 +422,19 @@ def make_bundle_from_anndata(
         gene_name_field=gene_name_field,
     )
 
+    # Write clusters (analytically derived cell groupings)
+
+    write_clusters_from_adata(
+        manifest=manifest,
+        bundle_dir=bundle_dir,
+        adata=adata,
+        config=config,
+    )
+
+    # Write the final file manifest
+
+    write_file_manifest(bundle_dir, manifest)
+
 
 def write_matrices_from_adata(
     manifest, bundle_dir, adata, config, gene_name_field
@@ -405,6 +448,43 @@ def write_matrices_from_adata(
             subdir=slot_def["name"],
             gene_name_field=gene_name_field,
         )
+
+
+def write_clusters_from_adata(manifest, bundle_dir, adata, config):
+
+    # Find the groups in obs that correspond to clusterings
+    cluster_obs = [
+        x["slot"]
+        for x in config["cell_groups"]["entries"]
+        if x["kind"] == "clustering"
+    ]
+    default_cluster_obs = [
+        x["default"]
+        for x in config["cell_groups"]["entries"]
+        if x["kind"] == "clustering"
+    ]
+
+    # Map clusters to k values
+    clustering_to_k = clusterings_to_ks(adata, cluster_obs)
+
+    # Create a DataFrame for cluster outputs
+
+    clusters = adata.obs[cluster_obs].T
+    clusters["K"] = [clustering_to_k[x] for x in cluster_obs]
+    clusters["sel.K"] = default_cluster_obs
+
+    clusters.to_csv(
+        f"{bundle_dir}/clusters_for_bundle.txt",
+        sep="\t",
+        columns=["sel.K", "K"] + list(adata.obs_names),
+        index=False,
+    )
+
+    set_manifest_value(
+        manifest,
+        "cluster_memberships",
+        f"{bundle_dir}/clusters_for_bundle.txt",
+    )
 
 
 def write_matrix_from_adata(
@@ -445,13 +525,13 @@ def write_matrix_from_adata(
             f_out.writelines(f_in)
         os.remove(filepath)
 
-    manifest = _set_manifest_value(
+    manifest = set_manifest_value(
         manifest, "mtx_matrix_content", f"{subdir}/matrix.mtx.gz", subdir
     )
-    manifest = _set_manifest_value(
+    manifest = set_manifest_value(
         manifest, "mtx_matrix_cols", f"{subdir}/barcodes.tsv.gz", subdir
     )
-    manifest = _set_manifest_value(
+    manifest = set_manifest_value(
         manifest, "mtx_matrix_rows", f"{subdir}/genes.mtx.gz", subdir
     )
 
@@ -495,6 +575,9 @@ def create_bundle(
                    information for SCXA.
     bundle_dir   - A directory in which to create the bundle.
     """
+
+    adata = sc.read(anndata_file)
+    config = load_doc(anndata_description_yaml)
 
     # Remove anything completely empty in .obs or .var
 
@@ -550,52 +633,8 @@ def create_bundle(
             index=True,
             index_label="gene_id",
         )
-        manifest = _set_manifest_value(
+        manifest = set_manifest_value(
             manifest, "gene_metadata", "reference/gene_annotation.txt"
-        )
-
-    if raw_matrix_slot is not None:
-        print("Writing raw matrix")
-        manifest = _write_matrix_from_adata(
-            manifest,
-            adata,
-            slot=raw_matrix_slot,
-            bundle_dir=bundle_dir,
-            subdir="raw",
-            gene_name_field=gene_name_field,
-        )
-
-    if filtered_matrix_slot is not None:
-        print("Writing filtered matrix")
-        manifest = _write_matrix_from_adata(
-            manifest,
-            adata,
-            slot=filtered_matrix_slot,
-            bundle_dir=bundle_dir,
-            subdir="raw_filtered",
-            gene_name_field=gene_name_field,
-        )
-
-    if normalised_matrix_slot is not None:
-        print("Writing normalised matrix")
-        manifest = _write_matrix_from_adata(
-            manifest,
-            adata,
-            slot=normalised_matrix_slot,
-            bundle_dir=bundle_dir,
-            subdir="filtered_normalised",
-            gene_name_field=gene_name_field,
-        )
-
-    if final_matrix_slot is not None:
-        print("Writing final matrix")
-        manifest = _write_matrix_from_adata(
-            manifest,
-            adata,
-            slot=final_matrix_slot,
-            bundle_dir=bundle_dir,
-            subdir="final",
-            gene_name_field=gene_name_field,
         )
 
     if write_obsms:
@@ -611,32 +650,6 @@ def create_bundle(
                 bundle_dir=bundle_dir,
                 atlas_style=atlas_style,
             )
-
-    if write_clusters:
-        print("Writing clusterings to file")
-
-        # If no list of cluster variables is specified, select automatically
-        # using the field pattern. If the fields are supplied, use the ones
-        # that are actually present in .obs.
-
-        if clusters is None:
-            clusters = [
-                x for x in adata.obs.columns if clusters_field_pattern in x
-            ]
-        else:
-            clusters = list(set(clusters) & set(adata.obs.columns))
-
-        if len(clusters) == 0:
-            print("No .obs slots matching clusters specifications.")
-            return False
-
-        manifest = _write_clusters_from_adata(
-            manifest,
-            adata,
-            clusters=clusters,
-            bundle_dir=bundle_dir,
-            atlas_style=atlas_style,
-        )
 
     if write_markers:
         print("Writing markers to file")
@@ -659,7 +672,7 @@ def create_bundle(
         adata.uns["software_versions"].to_csv(
             software_versions_outfile, sep="\t", header=True, index=False
         )
-        manifest = _set_manifest_value(
+        manifest = set_manifest_value(
             manifest, "software_versions_file", "software.tsv"
         )
 
@@ -670,13 +683,11 @@ def create_bundle(
         print("Writing annData file to bundle")
         adata_filename = f"{config['exp-name']}.project.h5ad"
         adata.write(f"{bundle_dir}/{adata_filename}")
-        manifest = _set_manifest_value(
-            manifest, "project_file", adata_filename
-        )
+        manifest = set_manifest_value(manifest, "project_file", adata_filename)
 
     # Write the final file manifest
 
-    _write_file_manifest(bundle_dir, manifest)
+    write_file_manifest(bundle_dir, manifest)
 
 
 # Write cell metadata, including for curation as mage-tab
@@ -719,9 +730,7 @@ def _write_cell_metadata(
     cell_metadata.to_csv(
         cellmeta_filename, sep="\t", header=True, index=True, index_label="id"
     )
-    manifest = _set_manifest_value(
-        manifest, "cell_metadata", cellmeta_filename
-    )
+    manifest = set_manifest_value(manifest, "cell_metadata", cellmeta_filename)
 
     if config["droplet"]:
 
@@ -818,14 +827,20 @@ def _write_obsm_from_adata(
         adata, key=obsm_name, embed_fn=f"{bundle_dir}/{filename}"
     )
 
-    manifest = _set_manifest_value(
+    manifest = set_manifest_value(
         manifest, description, filename, parameterisation
     )
 
     return manifest
 
 
-def _select_clusterings(adata, clusters, atlas_style=True):
+def clusterings_to_ks(adata, obs_names):
+    return dict(
+        zip(obs_names, [len(adata.obs[c].unique()) for c in obs_names])
+    )
+
+
+def select_clusterings(adata, clusters, atlas_style=True):
 
     clusterings = list(
         dict(
@@ -841,9 +856,7 @@ def _select_clusterings(adata, clusters, atlas_style=True):
         ).keys()
     )
 
-    clustering_to_nclust = dict(
-        zip(clusterings, [len(adata.obs[c].unique()) for c in clusterings])
-    )
+    clustering_to_nclust = clusterings_to_ks(adata, clusterings)
 
     if atlas_style:
 
@@ -859,51 +872,6 @@ def _select_clusterings(adata, clusters, atlas_style=True):
         clustering_to_nclust = kept_clusterings
 
     return dict(sorted(clustering_to_nclust.items(), key=lambda item: item[1]))
-
-
-def _write_clusters_from_adata(
-    manifest,
-    adata,
-    clusters,
-    bundle_dir,
-    atlas_style=True,
-    default_clustering=None,
-):
-
-    if default_clustering is None:
-        if atlas_style:
-            default_clustering = "louvain_resolution_1.0"
-        else:
-            default_clustering = clusters[math.floor((len(clusters) - 1) / 2)]
-
-    clustering_to_k = _select_clusterings(
-        adata, clusters=clusters, atlas_style=atlas_style
-    )
-
-    # Write the complete clusters file in order
-
-    with open(f"{bundle_dir}/clusters_for_bundle.txt", mode="w") as fp:
-        fp.write("sel.K\tK\t" + "\t".join(list(adata.obs_names)) + "\n")
-
-        for clustering, k in clustering_to_k.items():
-            selected = "TRUE" if clustering == default_clustering else "FALSE"
-            cluster_memberships = list(adata.obs[clustering])
-            if min([int(x) for x in cluster_memberships]) == 0:
-                cluster_memberships = [
-                    str(int(x) + 1) for x in cluster_memberships
-                ]
-
-            fp.write("\t".join([selected, str(k)]))
-            fp.write("\t" + "\t".join(list(cluster_memberships)))
-            fp.write("\n")
-
-    manifest = _set_manifest_value(
-        manifest,
-        "cluster_memberships",
-        f"{bundle_dir}/clusters_for_bundle.txt",
-    )
-
-    return manifest
 
 
 # For Atlas we store marker sets by integer number of clusters. Where cluster
@@ -925,7 +893,7 @@ def _write_markers_from_adata(
     marker_stats_layers=None,
 ):
 
-    clustering_to_k = _select_clusterings(
+    clustering_to_k = select_clusterings(
         adata, clusters=clusters, atlas_style=atlas_style
     )
 
@@ -975,13 +943,13 @@ def _write_markers_from_adata(
             k = clustering_to_k[mg]
             filename = f"{bundle_dir}/markers_{k}.tsv"
             de_tbl.to_csv(filename, sep="\t", header=True, index=False)
-            manifest = _set_manifest_value(
+            manifest = set_manifest_value(
                 manifest, "cluster_markers", filename, k
             )
         else:
             filename = f"{bundle_dir}/{marker}.tsv"
             de_tbl.to_csv(filename, sep="\t", header=True, index=False)
-            manifest = _set_manifest_value(
+            manifest = set_manifest_value(
                 manifest, "meta_markers", filename, mg
             )
 
@@ -1023,7 +991,7 @@ def _write_markers_from_adata(
             statsfile = f"{bundle_dir}/{sl}_stats.csv"
 
             marker_summary.to_csv(statsfile, index=False)
-            manifest = _set_manifest_value(
+            manifest = set_manifest_value(
                 manifest, "marker_stats", statsfile, sl
             )
 
@@ -1111,14 +1079,14 @@ def read_file_manifest(bundle_dir):
                 line_parts = line.rstrip().split("\t")
                 if len(line_parts) < 3:
                     line_parts.append("")
-                manifest = _set_manifest_value(
+                manifest = set_manifest_value(
                     manifest, line_parts[0], line_parts[1], line_parts[2]
                 )
 
     return manifest
 
 
-def _write_file_manifest(bundle_dir, manifest):
+def write_file_manifest(bundle_dir, manifest):
     manifest_file = f"{bundle_dir}/MANIFEST"
 
     with open(manifest_file, "w") as fh:
@@ -1129,7 +1097,7 @@ def _write_file_manifest(bundle_dir, manifest):
                 fh.write(f"{description}\t{filename}\t{parameterisation}\n")
 
 
-def _set_manifest_value(manifest, description, filename, parameterisation=""):
+def set_manifest_value(manifest, description, filename, parameterisation=""):
     if description not in manifest:
         manifest[description] = OrderedDict()
 
