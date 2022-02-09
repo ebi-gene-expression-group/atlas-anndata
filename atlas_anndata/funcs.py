@@ -274,6 +274,7 @@ def make_starting_config_from_anndata(
     """
 
     adata = sc.read(anndata_file)
+    from atlas_anndata import MISSING_STRING
 
     config = {
         "exp-name": exp_name,
@@ -299,8 +300,8 @@ def make_starting_config_from_anndata(
     for ms in matrix_slots:
         matrix_entry = {
             "slot": ms,
-            "name": ms if ms in adata.layers else None,
-            "measure": "counts" if atlas_style else None,
+            "name": ms if ms in adata.layers else MISSING_STRING,
+            "measure": "counts" if atlas_style else MISSING_STRING,
             "cell_filtered": True,
             "gene_filtered": False,
             "normalised": False,
