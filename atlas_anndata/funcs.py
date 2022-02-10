@@ -912,25 +912,25 @@ def select_clusterings(adata, clusters, atlas_style=True):
     return dict(sorted(clustering_to_nclust.items(), key=lambda item: item[1]))
 
 
-# For Atlas we store marker sets by integer number of clusters. Where cluster
-# nubmers clash between marker sets (e.g. for different resolution values) we
-# use the set from a resolution closest to 1
-# TODO: fix this for cell type markers
+# Write markers for clusterings tagged in the config
 
 
 def write_markers_from_adata(
     manifest, bundle_dir, adata, config, write_marker_stats=False
 ):
-
     marker_groupings = [
         (x["slot"], x["kind"])
         for x in config["cell_groups"]["entries"]
         if x["markers"]
     ]
-    clustering_to_k = clusterings_to_ks(adata, cluster_obs)
+    clustering_to_k = clusterings_to_ks(
+        adata, [x[0] for x in marker_groupings]
+    )
 
     for cell_grouping, cell_group_kind in marker_groupings:
-        marker_fname = f"markers_{cell_grouping}.tsv"
+        print(f"cg: {cell_grouping}")
+
+        markers_name = cell_grouping
         de_table = get_markers_table(adata, cell_grouping)
         marker_type = "meta"
 
@@ -939,18 +939,26 @@ def write_markers_from_adata(
             # Atlas currently stores clusterings by number of clusters
 
             marker_type = "cluster"
-            marker_fname = f"markers_{clustering_to_k[cell_grouping]}.tsv"
+            markers_name = clustering_to_k[cell_grouping]
 
             # Reset cluster numbering to be from 1 if required
 
-            if de_tbl["cluster"].min() == "0":
-                de_tbl["cluster"] = [int(x) + 1 for x in de_tbl["cluster"]]
+            if de_table["cluster"].min() == "0":
+                de_table["cluster"] = [int(x) + 1 for x in de_table["cluster"]]
 
         # Write marker table to tsv
 
-        de_tbl.to_csv(marker_fname, sep="\t", header=True, index=False)
+        de_table.to_csv(
+            f"{bundle_dir}/markers_{markers_name}.tsv",
+            sep="\t",
+            header=True,
+            index=False,
+        )
         manifest = set_manifest_value(
-            manifest, "{marker_type}_markers", filename, k
+            manifest,
+            f"{marker_type}_markers",
+            f"markers_{markers_name}.tsv",
+            markers_name,
         )
 
     # Now make the summary stats
@@ -981,11 +989,11 @@ def write_markers_from_adata(
                         adata,
                         sl,
                         mg,
-                        de_tbl,
+                        de_table,
                         max_rank=max_rank_for_stats,
                         k=clustering_to_k.get(mg),
                     )
-                    for mg, de_tbl in de_tbls.items()
+                    for mg, de_table in de_tables.items()
                 ]
             )
             statsfile = f"{bundle_dir}/{sl}_stats.csv"
@@ -998,18 +1006,18 @@ def write_markers_from_adata(
     return manifest
 
 
-def _get_markers_table(adata, marker_grouping):
+def get_markers_table(adata, marker_grouping):
 
-    de_tbl = ss.lib._diffexp.extract_de_table(
+    de_table = ss.lib._diffexp.extract_de_table(
         adata.uns[f"markers_{marker_grouping}"]
     )
-    de_tbl = de_tbl.loc[de_tbl.genes.astype(str) != "nan", :]
+    de_table = de_table.loc[de_table.genes.astype(str) != "nan", :]
 
-    return de_tbl
+    return de_table
 
 
 def _make_markers_summary(
-    adata, layer, marker_grouping, de_tbl, max_rank=4, k=None
+    adata, layer, marker_grouping, de_table, max_rank=4, k=None
 ):
 
     summary_stats = (
@@ -1037,7 +1045,7 @@ def _make_markers_summary(
     }
 
     markers_summary = (
-        de_tbl.merge(summary_stats, left_on="genes", right_index=True)
+        de_table.merge(summary_stats, left_on="genes", right_index=True)
         .drop(["ref", "scores", "logfoldchanges", "pvals"], axis=1)
         .rename(columns=new_colnames)
     )
