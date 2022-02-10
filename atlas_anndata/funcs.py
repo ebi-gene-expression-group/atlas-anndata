@@ -918,21 +918,27 @@ def select_clusterings(adata, clusters, atlas_style=True):
 # TODO: fix this for cell type markers
 
 
-def write_markers_from_adata(manifest, bundle_dir, adata, config, write_marker_stats = False):
-    
-    marker_groupings  = [( x["slot"], x["kind"] ) for x in config["cell_groups"]["entries"] if x['markers']]
+def write_markers_from_adata(
+    manifest, bundle_dir, adata, config, write_marker_stats=False
+):
+
+    marker_groupings = [
+        (x["slot"], x["kind"])
+        for x in config["cell_groups"]["entries"]
+        if x["markers"]
+    ]
     clustering_to_k = clusterings_to_ks(adata, cluster_obs)
 
     for cell_grouping, cell_group_kind in marker_groupings:
         marker_fname = f"markers_{cell_grouping}.tsv"
         de_table = get_markers_table(adata, cell_grouping)
-        marker_type = 'meta'
+        marker_type = "meta"
 
-        if cell_group_kind == 'clustering':
+        if cell_group_kind == "clustering":
 
             # Atlas currently stores clusterings by number of clusters
 
-            marker_type='cluster'
+            marker_type = "cluster"
             marker_fname = f"markers_{clustering_to_k[cell_grouping]}.tsv"
 
             # Reset cluster numbering to be from 1 if required
@@ -940,7 +946,7 @@ def write_markers_from_adata(manifest, bundle_dir, adata, config, write_marker_s
             if de_tbl["cluster"].min() == "0":
                 de_tbl["cluster"] = [int(x) + 1 for x in de_tbl["cluster"]]
 
-        # Write marker table to tsv    
+        # Write marker table to tsv
 
         de_tbl.to_csv(marker_fname, sep="\t", header=True, index=False)
         manifest = set_manifest_value(
