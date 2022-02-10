@@ -433,6 +433,15 @@ def make_bundle_from_anndata(
         config=config,
     )
 
+    # Write any associated markers
+
+    write_markers_from_adata(
+        manifest=manifest,
+        bundle_dir=bundle_dir,
+        adata=adata,
+        config=config,
+    )
+
     # Write cell metadata (curated cell info)
 
     write_cell_metadata(
@@ -695,7 +704,7 @@ def create_bundle(
 
     if write_markers:
         print("Writing markers to file")
-        manifest = _write_markers_from_adata(
+        manifest = write_markers_from_adata(
             manifest,
             adata,
             clusters=clusters,
@@ -909,78 +918,34 @@ def select_clusterings(adata, clusters, atlas_style=True):
 # TODO: fix this for cell type markers
 
 
-def _write_markers_from_adata(
-    manifest,
-    adata,
-    clusters,
-    marker_clusterings=None,
-    metadata_marker_fields=None,
-    bundle_dir=None,
-    atlas_style=True,
-    write_marker_stats=True,
-    max_rank_for_stats=4,
-    marker_stats_layers=None,
-):
+def write_markers_from_adata(manifest, bundle_dir, adata, config, write_marker_stats = False):
+    
+    marker_groupings  = [( x["slot"], x["kind"] ) for x in config["cell_groups"]["entries"] if x['markers']]
+    clustering_to_k = clusterings_to_ks(adata, cluster_obs)
 
-    clustering_to_k = select_clusterings(
-        adata, clusters=clusters, atlas_style=atlas_style
-    )
+    for cell_grouping, cell_group_kind in marker_groupings:
+        marker_fname = f"markers_{cell_grouping}.tsv"
+        de_table = get_markers_table(adata, cell_grouping)
+        marker_type = 'meta'
 
-    # If no explicit marker sets suppplied, select those corresponding to the
-    # selected clusterings (where available)
+        if cell_group_kind == 'clustering':
 
-    marker_groupings = []
+            # Atlas currently stores clusterings by number of clusters
 
-    if marker_clusterings is None:
-        marker_groupings = [
-            x
-            for x in clustering_to_k.keys()
-            if f"markers_{x}" in adata.uns.keys()
-        ]
+            marker_type='cluster'
+            marker_fname = f"markers_{clustering_to_k[cell_grouping]}.tsv"
 
-    if metadata_marker_fields is not None:
-        marker_groupings = marker_groupings + metadata_marker_fields
+            # Reset cluster numbering to be from 1 if required
 
-    missing_marker_sets = [
-        x for x in marker_groupings if f"markers_{x}" not in adata.uns.keys()
-    ]
-    if len(missing_marker_sets) > 0:
-        raise Exception(
-            "Some supplied marker clusterings do not have marker results in"
-            " .uns: %s"
-            % ",".join(missing_marker_sets)
+            if de_tbl["cluster"].min() == "0":
+                de_tbl["cluster"] = [int(x) + 1 for x in de_tbl["cluster"]]
+
+        # Write marker table to tsv    
+
+        de_tbl.to_csv(marker_fname, sep="\t", header=True, index=False)
+        manifest = set_manifest_value(
+            manifest, "{marker_type}_markers", filename, k
         )
-
-    de_tbls = dict(
-        zip(
-            marker_groupings,
-            [_get_markers_table(adata, mg) for mg in marker_groupings],
-        )
-    )
-
-    for mg in marker_groupings:
-        marker = f"markers_{mg}"
-
-        de_tbl = de_tbls[mg]
-
-        # Reset cluster numbering to be from 1 if required
-
-        if de_tbl["cluster"].min() == "0":
-            de_tbl["cluster"] = [int(x) + 1 for x in de_tbl["cluster"]]
-
-        if mg in clustering_to_k:
-            k = clustering_to_k[mg]
-            filename = f"{bundle_dir}/markers_{k}.tsv"
-            de_tbl.to_csv(filename, sep="\t", header=True, index=False)
-            manifest = set_manifest_value(
-                manifest, "cluster_markers", filename, k
-            )
-        else:
-            filename = f"{bundle_dir}/{marker}.tsv"
-            de_tbl.to_csv(filename, sep="\t", header=True, index=False)
-            manifest = set_manifest_value(
-                manifest, "meta_markers", filename, mg
-            )
 
     # Now make the summary stats
 
