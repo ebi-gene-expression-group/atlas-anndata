@@ -1212,7 +1212,8 @@ def write_mtx(
 
 def calculate_summary_stats(adata, obs, matrix="normalised"):
     print(
-        f"Calculating summary stats for {matrix} matrix, cell groups defined by {obs}"
+        f"Calculating summary stats for {matrix} matrix, cell groups defined"
+        f" by {obs}"
     )
     for ob in obs:
         layer = None
