@@ -505,7 +505,9 @@ def write_obsms_from_adata(manifest, bundle_dir, adata, config):
             adata,
             obsm_name=slot_def["slot"],
             embedding_type=slot_def["kind"],
-            parameterisation=list(slot_def["parameters"].values())[0] if len(slot_def["parameters"]) > 0 else '',
+            parameterisation=list(slot_def["parameters"].values())[0]
+            if len(slot_def["parameters"]) > 0
+            else "",
             bundle_dir=bundle_dir,
         )
 
