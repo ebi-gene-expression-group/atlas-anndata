@@ -453,6 +453,11 @@ def make_bundle_from_anndata(
         config=config,
     )
 
+    print("Writing annData file to bundle")
+    adata_filename = f"{config['exp-name']}.project.h5ad"
+    adata.write(f"{bundle_dir}/{adata_filename}")
+    set_manifest_value(manifest, "project_file", adata_file)
+
     # Write the final file manifest
 
     write_file_manifest(bundle_dir, manifest)
