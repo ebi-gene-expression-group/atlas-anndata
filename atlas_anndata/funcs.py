@@ -432,6 +432,15 @@ def make_bundle_from_anndata(
         config=config,
     )
 
+    # Write any dim. reds from obsm
+
+    write_obsms_from_adata(
+        manifest=manifest,
+        bundle_dir=bundle_dir,
+        adata=adata,
+        config=config,
+    )
+
     # Write the final file manifest
 
     write_file_manifest(bundle_dir, manifest)
@@ -486,6 +495,19 @@ def write_clusters_from_adata(manifest, bundle_dir, adata, config):
         "cluster_memberships",
         f"{bundle_dir}/clusters_for_bundle.txt",
     )
+
+
+def write_obsms_from_adata(manifest, bundle_dir, adata, config):
+
+    for slot_def in config["dimension_reductions"]["entries"]:
+        write_obsm_from_adata(
+            manifest,
+            adata,
+            obsm_name=slot_def["slot"],
+            embedding_type=slot_def["kind"],
+            parameterisation=list(slot_def["parameters"].values())[0] if len(slot_def["parameters"]) > 0 else '',
+            bundle_dir=bundle_dir,
+        )
 
 
 def write_matrix_from_adata(
@@ -644,7 +666,7 @@ def create_bundle(
 
         for obsm in obsms:
             print(f"Writing {obsm}")
-            manifest = _write_obsm_from_adata(
+            manifest = write_obsm_from_adata(
                 manifest,
                 adata,
                 obsm_name=obsm,
@@ -799,40 +821,23 @@ def _write_cell_metadata(
 # Write dimension reductions from .obsm slots
 
 
-def _write_obsm_from_adata(
-    manifest, adata, obsm_name, bundle_dir, atlas_style=True
+def write_obsm_from_adata(
+    manifest, adata, obsm_name, embedding_type, parameterisation, bundle_dir
 ):
 
-    obsm_paramstring = obsm_name.replace("X_", "")
-    filename = f"{obsm_paramstring}.tsv"
+    obsm_namestring = obsm_name.replace("X_", "")
+    filename = f"{obsm_namestring}.tsv"
+    description = f"{embedding_type}_embeddings"
 
-    description = "embeddings"
-    for embedding_type in ["umap", "pca", "tsne"]:
-        if embedding_type in obsm_paramstring:
-            description = f"{embedding_type}_{description}"
-            obsm_paramstring = re.sub(
-                r"_?%s_?" % embedding_type, "", obsm_paramstring
-            )
-            break
-
-    # If following Atlas conventions, we can assume .obsm slots like
-    # X_umap_neighbors_n_neighbors_20, which after above processing should now
-    # be like neighbors_n_neighbors_20
-
-    if atlas_style:
-        parameterisation = obsm_paramstring.split("_")[-1]
-    else:
-        parameterisation = obsm_paramstring
-
+    # Call the scanpy-scripts routine which writes embeddings
     ss.obj_utils.write_embedding(
         adata, key=obsm_name, embed_fn=f"{bundle_dir}/{filename}"
     )
 
+    # Record in manifest
     manifest = set_manifest_value(
         manifest, description, filename, parameterisation
     )
-
-    return manifest
 
 
 def clusterings_to_ks(adata, obs_names):
@@ -1099,6 +1104,7 @@ def write_file_manifest(bundle_dir, manifest):
 
 
 def set_manifest_value(manifest, description, filename, parameterisation=""):
+
     if description not in manifest:
         manifest[description] = OrderedDict()
 
