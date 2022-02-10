@@ -415,6 +415,7 @@ def make_bundle_from_anndata(
 
     # Write matrices
 
+    print("Writing matrices")
     write_matrices_from_adata(
         manifest=manifest,
         bundle_dir=bundle_dir,
@@ -426,16 +427,8 @@ def make_bundle_from_anndata(
     # Write clusters (analytically derived cell groupings). For historical
     # reasons this is written differently to e.g. curated metadata
 
+    print("Writing obs (unsupervised clusterings)")
     write_clusters_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_dir,
-        adata=adata,
-        config=config,
-    )
-
-    # Write any associated markers
-
-    write_markers_from_adata(
         manifest=manifest,
         bundle_dir=bundle_dir,
         adata=adata,
@@ -444,6 +437,7 @@ def make_bundle_from_anndata(
 
     # Write cell metadata (curated cell info)
 
+    print("Writing obs (curated metadata)")
     write_cell_metadata(
         manifest=manifest,
         adata=adata,
@@ -453,8 +447,20 @@ def make_bundle_from_anndata(
         write_premagetab=True,
     )
 
+    # Write any associated markers
+
+    print("Writing markers and statistics")
+    write_markers_from_adata(
+        manifest=manifest,
+        bundle_dir=bundle_dir,
+        adata=adata,
+        config=config,
+        write_marker_stats=True,
+    )
+
     # Write any dim. reds from obsm
 
+    print("Writing dimension reductions")
     write_obsms_from_adata(
         manifest=manifest,
         bundle_dir=bundle_dir,
@@ -462,7 +468,7 @@ def make_bundle_from_anndata(
         config=config,
     )
 
-    print("Writing annData file to bundle")
+    print("Writing annData file")
     adata_filename = f"{config['exp-name']}.project.h5ad"
     adata.write(f"{bundle_dir}/{adata_filename}")
     set_manifest_value(manifest, "project_file", adata_filename)
@@ -916,22 +922,34 @@ def select_clusterings(adata, clusters, atlas_style=True):
 
 
 def write_markers_from_adata(
-    manifest, bundle_dir, adata, config, write_marker_stats=False
+    manifest,
+    bundle_dir,
+    adata,
+    config,
+    write_marker_stats=True,
+    max_rank_for_stats=4,
 ):
-    marker_groupings = [
+    marker_groupings_kinds = [
         (x["slot"], x["kind"])
         for x in config["cell_groups"]["entries"]
         if x["markers"]
     ]
-    clustering_to_k = clusterings_to_ks(
-        adata, [x[0] for x in marker_groupings]
+    marker_groupings = [x[0] for x in marker_groupings_kinds]
+    clustering_to_k = clusterings_to_ks(adata, marker_groupings)
+
+    # Pre-calculate the d/e tables so they can be re-used for stats
+
+    de_tables = dict(
+        zip(
+            marker_groupings,
+            [get_markers_table(adata, mg) for mg in marker_groupings],
+        )
     )
 
-    for cell_grouping, cell_group_kind in marker_groupings:
-        print(f"cg: {cell_grouping}")
+    for cell_grouping, cell_group_kind in marker_groupings_kinds:
 
         markers_name = cell_grouping
-        de_table = get_markers_table(adata, cell_grouping)
+        de_table = de_tables[cell_grouping]
         marker_type = "meta"
 
         if cell_group_kind == "clustering":
@@ -961,49 +979,39 @@ def write_markers_from_adata(
             markers_name,
         )
 
-    # Now make the summary stats
+    # Now make summary statstics if we have an appropriate matrix
 
-    if write_marker_stats:
+    if write_marker_stats and "load_to_scxa_db" in config["matrices"]:
 
-        marker_stats_layers = (
-            ["normalised"]
-            if marker_stats_layers is None
-            else marker_stats_layers
+        matrix_for_stats = config["matrices"]["load_to_scxa_db"]
+
+        # Add mean and median for cell groups to the anndata
+
+        calculate_summary_stats(
+            adata,
+            marker_groupings,
+            matrix=matrix_for_stats,
         )
 
-        for sl in marker_stats_layers:
-
-            if sl not in adata.layers.keys():
-                valid_layers = ",".join(adata.layers.keys())
-                raise Exception(
-                    f"{sl} is not a valid layer, valid layers are"
-                    f" {valid_layers}"
+        marker_summary = pd.concat(
+            [
+                make_markers_summary(
+                    adata,
+                    config["matrices"]["load_to_scxa_db"],
+                    cell_grouping,
+                    de_table,
+                    max_rank=max_rank_for_stats,
+                    cell_group_kind=cell_group_kind,
                 )
+                for mg, de_table in de_tables.items()
+            ]
+        )
+        statsfile = f"{bundle_dir}/{matrix_for_stats}_stats.csv"
 
-            calculate_summary_stats(adata, marker_groupings, layer=sl)
-
-            # Convert grouping name to k for storage
-            marker_summary = pd.concat(
-                [
-                    _make_markers_summary(
-                        adata,
-                        sl,
-                        mg,
-                        de_table,
-                        max_rank=max_rank_for_stats,
-                        k=clustering_to_k.get(mg),
-                    )
-                    for mg, de_table in de_tables.items()
-                ]
-            )
-            statsfile = f"{bundle_dir}/{sl}_stats.csv"
-
-            marker_summary.to_csv(statsfile, index=False)
-            manifest = set_manifest_value(
-                manifest, "marker_stats", statsfile, sl
-            )
-
-    return manifest
+        marker_summary.to_csv(statsfile, index=False)
+        manifest = set_manifest_value(
+            manifest, "marker_stats", statsfile, matrix_for_stats
+        )
 
 
 def get_markers_table(adata, marker_grouping):
@@ -1016,8 +1024,8 @@ def get_markers_table(adata, marker_grouping):
     return de_table
 
 
-def _make_markers_summary(
-    adata, layer, marker_grouping, de_table, max_rank=4, k=None
+def make_markers_summary(
+    adata, layer, marker_grouping, de_table, max_rank=4, cell_group_kind=None
 ):
 
     summary_stats = (
@@ -1056,8 +1064,10 @@ def _make_markers_summary(
     # For unsupervised clusterings, record the grouping as k and increment the
     # group numbers so they start from 1
 
-    if k:
-        markers_summary["grouping_where_marker"] = k
+    if cell_group_kind == "clustering":
+        markers_summary["grouping_where_marker"] = len(
+            adata.obs[marker_grouping].unique()
+        )
         if min([int(x) for x in markers_summary["cluster_id"]]) == 0:
             markers_summary["cluster_id"] = [
                 int(x) + 1 for x in markers_summary["cluster_id"]
@@ -1200,16 +1210,30 @@ def write_mtx(
     var_df.to_csv(gene_fname, sep="\t", header=False, index=False)
 
 
-def calculate_summary_stats(adata, obs, layer="normalised"):
-    print("Calculating summary stats")
+def calculate_summary_stats(adata, obs, matrix="normalised"):
+    print(
+        f"Calculating summary stats for {matrix} matrix, cell groups defined by {obs}"
+    )
     for ob in obs:
+        layer = None
+        use_raw = False
+
+        if matrix == "raw.x":
+            use_raw = True
+
+        elif matrix in adata.layers:
+            layer = matrix
+
         genedf = sc.get.obs_df(
-            adata, keys=[ob, *list(adata.var_names)], layer=layer
+            adata,
+            keys=[ob, *list(adata.var_names)],
+            layer=layer,
+            use_raw=use_raw,
         )
         grouped = genedf.groupby(ob)
         mean, median = grouped.mean(), grouped.median()
-        adata.varm[f"mean_{layer}_{ob}"] = mean.transpose()
-        adata.varm[f"median_{layer}_{ob}"] = median.transpose()
+        adata.varm[f"mean_{matrix}_{ob}"] = mean.transpose()
+        adata.varm[f"median_{matrix}_{ob}"] = median.transpose()
 
 
 if __name__ == "__main__":
