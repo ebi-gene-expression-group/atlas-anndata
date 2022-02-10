@@ -423,13 +423,25 @@ def make_bundle_from_anndata(
         gene_name_field=gene_name_field,
     )
 
-    # Write clusters (analytically derived cell groupings)
+    # Write clusters (analytically derived cell groupings). For historical
+    # reasons this is written differently to e.g. curated metadata
 
     write_clusters_from_adata(
         manifest=manifest,
         bundle_dir=bundle_dir,
         adata=adata,
         config=config,
+    )
+
+    # Write cell metadata (curated cell info)
+
+    write_cell_metadata(
+        manifest=manifest,
+        adata=adata,
+        bundle_dir=bundle_dir,
+        config=config,
+        kind="curation",
+        write_premagetab=True,
     )
 
     # Write any dim. reds from obsm
@@ -493,7 +505,7 @@ def write_clusters_from_adata(manifest, bundle_dir, adata, config):
     set_manifest_value(
         manifest,
         "cluster_memberships",
-        f"{bundle_dir}/clusters_for_bundle.txt",
+        "clusters_for_bundle.txt",
     )
 
 
@@ -623,7 +635,7 @@ def create_bundle(
 
     if write_cellmeta:
         print("Writing cell and run/sample metadata")
-        manifest = _write_cell_metadata(
+        manifest = write_cell_metadata(
             manifest,
             adata,
             bundle_dir,
@@ -718,106 +730,110 @@ def create_bundle(
 # Write cell metadata, including for curation as mage-tab
 
 
-def _write_cell_metadata(
-    manifest, adata, bundle_dir, config, nonmeta_obs_patterns=None
+def write_cell_metadata(
+    manifest, adata, bundle_dir, config, kind=None, write_premagetab=False
 ):
 
-    print("Writing cell metdata to be used in curation")
-    cellmeta_filename = f"{bundle_dir}/{config['exp_name']}.cell_metadata.tsv"
-    presdrf_filename = (
-        f"{bundle_dir}/mage-tab/{config['exp_name']}.presdrf.txt"
-    )
-    precells_filename = (
-        f"{bundle_dir}/mage-tab/{config['exp_name']}.precells.txt"
-    )
+    # By default print all obs columns, but that's probably not we want in most
+    # cases because of mixture of data types there (from curation, QC,
+    # clustering etc)
 
-    # Don't write calculated fields
-
-    if nonmeta_obs_patterns is None:
-        nonmeta_obs_patterns = [
-            "louvain",
-            "n_genes",
-            "n_counts",
-            "pct_",
-            "total_counts",
-            "predicted_doublet",
-            "doublet_score",
+    if kind is None:
+        obs_columns = list(adata.obs.columns)
+    else:
+        obs_columns = [
+            slot_def["slot"]
+            for slot_def in config["cell_groups"]["entries"]
+            if slot_def["kind"] == kind
         ]
 
-    nonmeta_cols = [
-        x
-        for x in adata.obs.columns
-        if any([y in x for y in nonmeta_obs_patterns])
-    ]
-    cellmeta_cols = [x for x in adata.obs.columns if x not in nonmeta_cols]
+    print("Writing cell metdata to be used in curation")
+    cellmeta_filename = f"{config['exp-name']}.cell_metadata.tsv"
+    presdrf_filename = f"mage-tab/{config['exp-name']}.presdrf.txt"
+    precells_filename = f"mage-tab/{config['exp-name']}.precells.txt"
+    pathlib.Path(f"{bundle_dir}/mage-tab").mkdir(parents=True, exist_ok=True)
 
-    cell_metadata = adata.obs[cellmeta_cols].copy()
+    cell_metadata = adata.obs[obs_columns].copy()
     cell_metadata.to_csv(
-        cellmeta_filename, sep="\t", header=True, index=True, index_label="id"
+        f"{bundle_dir}/{cellmeta_filename}",
+        sep="\t",
+        header=True,
+        index=True,
+        index_label="id",
     )
     manifest = set_manifest_value(manifest, "cell_metadata", cellmeta_filename)
 
-    if config["droplet"]:
+    if kind == "curation" and write_premagetab:
+        if config["droplet"]:
 
-        # Split cell IDs to runs and barcodes
+            # Split cell IDs to runs and barcodes
+            try:
+                runs, barcodes = zip(*(s.split("-") for s in adata.obs_names))
+            except ValueError as e:
+                print(
+                    f"Error deriving run and barcode lists: {e}. Cell names"
+                    " likely don't match expected <run or sample>_<barcode>"
+                    " naming format for droplet experiments. First cell name"
+                    f" is: {adata.obs_names[0]}"
+                )
+                sys.exit(1)
 
-        runs, barcodes = zip(*(s.split("-") for s in adata.obs_names))
-        cell_metadata["cell barcode"] = barcodes
+            cell_metadata["cell barcode"] = barcodes
 
-        # Split cell metadata by run ID and create run-wise metadata with
-        # any invariant value across all cells of a run
+            # Split cell metadata by run ID and create run-wise metadata with
+            # any invariant value across all cells of a run
 
-        unique_runs = list(set(runs))
-        submetas = [cell_metadata[[y == x for y in runs]] for x in unique_runs]
-        run_meta = pd.concat(
-            [
-                df[[x for x in df.columns if len(set(df[x])) == 1]].head(1)
-                for df in submetas
-            ],
-            join="inner",
-        )
-        run_meta["run"] = unique_runs
-        run_meta.set_index("run", inplace=True)
-
-        run_meta.to_csv(
-            presdrf_filename,
-            sep="\t",
-            header=True,
-            index=True,
-            index_label="id",
-        )
-        cell_specific_metadata = cell_metadata[
-            [
-                x
-                for x in cell_metadata.columns
-                if x not in nonmeta_cols + list(run_meta.columns)
+            unique_runs = list(set(runs))
+            submetas = [
+                cell_metadata[[y == x for y in runs]] for x in unique_runs
             ]
-        ]
+            run_meta = pd.concat(
+                [
+                    df[[x for x in df.columns if len(set(df[x])) == 1]].head(1)
+                    for df in submetas
+                ],
+                join="inner",
+            )
+            run_meta["run"] = unique_runs
+            run_meta.set_index("run", inplace=True)
 
-        if len(cell_specific_metadata.columns) > 0:
-            cell_specific_metadata.to_csv(
-                precells_filename,
+            run_meta.to_csv(
+                f"{bundle_dir}/{presdrf_filename}",
                 sep="\t",
                 header=True,
                 index=True,
-                index_label="Cell ID",
+                index_label="id",
             )
+            cell_specific_metadata = cell_metadata[
+                [
+                    x
+                    for x in cell_metadata.columns
+                    if x not in obs_columns + list(run_meta.columns)
+                ]
+            ]
+
+            if len(cell_specific_metadata.columns) > 0:
+                cell_specific_metadata.to_csv(
+                    f"{bundle_dir}/{precells_filename}",
+                    sep="\t",
+                    header=True,
+                    index=True,
+                    index_label="Cell ID",
+                )
+            else:
+                print(
+                    "Supplied anndata contained no cell-specific metadata for"
+                    " this droplet experiment"
+                )
+
         else:
-            print(
-                "Supplied anndata contained no cell-specific metadata for this"
-                " droplet experiment"
+            cell_metadata.to_csv(
+                f"{bundle_dir}/{presdrf_filename}",
+                sep="\t",
+                header=True,
+                index=True,
+                index_label="id",
             )
-
-    else:
-        cell_metadata.to_csv(
-            presdrf_filename,
-            sep="\t",
-            header=True,
-            index=True,
-            index_label="id",
-        )
-
-    return manifest
 
 
 # Write dimension reductions from .obsm slots
