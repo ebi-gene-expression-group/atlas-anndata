@@ -15,6 +15,7 @@ from collections import OrderedDict
 import os
 import gzip
 import math
+import csv
 
 schema_file = pkg_resources.resource_filename(
     "atlas_anndata", "config_schema.yaml"
@@ -81,23 +82,33 @@ def check_slot(adata, slot_type, slot_name):
 
     print(f"Checking for {slot_type} {slot_name}")
 
+    check_result = False
+
+    errmsg = f"{slot_type} entry {slot_name} not present in anndata file"
+
     if slot_type == "matrices":
         if slot_name == "X":
-            return hasattr(adata, "X")
+            check_result = hasattr(adata, "X")
         elif slot_name == "raw.X":
-            return hasattr(adata.raw, "X")
+            check_result = hasattr(adata.raw, "X")
         else:
-            return slot_name in adata.layers
+            check_result = slot_name in adata.layers
 
     elif slot_type == "dimension_reductions":
-        return slot_name in adata.obsm
+        check_result = slot_name in adata.obsm
 
-    elif slot_type == "cell_groups":
-        return slot_name in adata.obs.columns
+    elif slot_type == "cell_meta":
+        check_result = slot_name in adata.obs.columns
+
+    elif slot_type == "gene_meta":
+        check_result = slot_name in adata.var.columns
 
     else:
-        print(f"{slot_type} slot type not recognised", file=sys.stderr)
-        return False
+        errmsg = f"{slot_type} slot type not recognised"
+        check_result = False
+
+    if not check_result:
+        raise Exception(errmsg)
 
 
 def validate_anndata_with_config(config_file, anndata_file):
@@ -115,9 +126,9 @@ def validate_anndata_with_config(config_file, anndata_file):
     Checking for matrices raw.X
     Checking for matrices filtered
     Checking for matrices normalised
-    Checking for cell_groups organism_part
-    Checking for cell_groups louvain_resolution_0.7
-    Checking for cell_groups louvain_resolution_1.0
+    Checking for cell_meta organism_part
+    Checking for cell_meta louvain_resolution_0.7
+    Checking for cell_meta louvain_resolution_1.0
     Checking for dimension_reductions X_umap_neighbors_n_neighbors_3
     Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
     Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
@@ -146,15 +157,18 @@ def validate_anndata_with_config(config_file, anndata_file):
 
     # Check that data is present at the locations indicated
 
-    for slot_type in ["matrices", "cell_groups", "dimension_reductions"]:
+    for slot_type in ["matrices", "cell_meta", "dimension_reductions"]:
         if slot_type in config:
             for slot_def in config[slot_type]["entries"]:
-                if not check_slot(adata, slot_type, slot_def["slot"]):
-                    errmsg = (
-                        f"{slot_type} entry {slot_def['slot']} not present in"
-                        f" anndata file {anndata_file}"
-                    )
-                    raise Exception(errmsg)
+                check_slot(adata, slot_type, slot_def["slot"])
+
+    # Check that scxa load matrix (if specified) is present
+
+    if "load_to_scxa_db" in config["matrices"]:
+        check_slot(adata, "matrices", config["matrices"]["load_to_scxa_db"])
+
+    if "name_field" in config["gene_meta"]:
+        check_slot(adata, "gene_meta", config["gene_meta"]["name_field"])
 
     print(f"annData file successfully validated against config {config_file}")
     return (config, adata)
@@ -197,7 +211,7 @@ def slot_kind_from_name(slot_type, slot_name):
         kind = f"{kind}: 'pca', 'tsne' or 'umap'"
         search_map = {".*pca": "pca", ".*umap": "umap", ".*tsne": "tsne"}
 
-    elif slot_type == "cell_groups":
+    elif slot_type == "cell_meta":
         kind = "curation"
         search_map = {
             "leiden": "clustering",
@@ -234,7 +248,7 @@ def extract_parameterisation(slot_type, slot_name, atlas_style=False):
     from slot naming.
 
     >>> extract_parameterisation(
-    ... 'cell_groups',
+    ... 'cell_meta',
     ... 'louvain_resolution_1.0',
     ... atlas_style = True )
     {'resolution': 1.0}
@@ -252,7 +266,7 @@ def extract_parameterisation(slot_type, slot_name, atlas_style=False):
             if m:
                 parameters[m.group(2)] = string_to_numeric(m.group(3))
 
-        elif slot_type == "cell_groups":
+        elif slot_type == "cell_meta":
             m = re.search(r"(louvain|leiden)_(.*)_(.*)", slot_name)
             if m:
                 parameters[m.group(2)] = string_to_numeric(m.group(3))
@@ -276,7 +290,14 @@ def string_to_numeric(numberstring):
 
 
 def make_starting_config_from_anndata(
-    anndata_file, config_file, atlas_style=False, exp_name=None, droplet=False
+    anndata_file,
+    config_file,
+    atlas_style=False,
+    exp_name=None,
+    droplet=False,
+    gene_name_field="gene_name",
+    default_clustering=None,
+    software_versions_file=None,
 ):
 
     """
@@ -293,8 +314,10 @@ def make_starting_config_from_anndata(
         "exp-name": exp_name,
         "droplet": droplet,
         "matrices": {"load_to_scxa_db": None, "entries": []},
-        "cell_groups": {"entries": []},
+        "gene_meta": {"name_field": gene_name_field},
+        "cell_meta": {"entries": []},
         "dimension_reductions": {"entries": []},
+        "software_versions": {"entries": []},
     }
 
     # Describe the matrices
@@ -343,12 +366,15 @@ def make_starting_config_from_anndata(
 
         obs_entry = {
             "slot": obs,
-            "kind": slot_kind_from_name("cell_groups", obs),
+            "kind": slot_kind_from_name("cell_meta", obs),
             "parameters": extract_parameterisation(
-                "cell_groups", obs, atlas_style
+                "cell_meta", obs, atlas_style
             ),
             "default": False,
         }
+
+        if default_clustering is not None and obs == default_clustering:
+            obs_entry["default"] = default_clustering
 
         markers_slot = obs_markers(adata, obs)
         if markers_slot:
@@ -357,13 +383,13 @@ def make_starting_config_from_anndata(
         else:
             obs_entry["markers"] = False
 
-        config["cell_groups"]["entries"].append(obs_entry)
+        config["cell_meta"]["entries"].append(obs_entry)
 
     # Find the groups in obs that correspond to clusterings
-    config_obs = [x["slot"] for x in config["cell_groups"]["entries"]]
+    config_obs = [x["slot"] for x in config["cell_meta"]["entries"]]
     cluster_obs = [
         x["slot"]
-        for x in config["cell_groups"]["entries"]
+        for x in config["cell_meta"]["entries"]
         if x["kind"] == "clustering"
     ]
 
@@ -373,17 +399,19 @@ def make_starting_config_from_anndata(
         ).keys()
     )
 
-    # Try to set a default clustering
-    if atlas_style and "louvain_resolution_1.0" in cluster_obs:
-        default_clustering = "louvain_resolution_1.0"
-    else:
-        default_clustering = cluster_obs[
-            math.floor((len(cluster_obs) - 1) / 2)
-        ]
+    if default_clustering is None:
 
-    config["cell_groups"]["entries"][config_obs.index(default_clustering)][
-        "default"
-    ] = True
+        # Try to set a default clustering
+        if atlas_style and "louvain_resolution_1.0" in cluster_obs:
+            default_clustering = "louvain_resolution_1.0"
+        else:
+            default_clustering = cluster_obs[
+                math.floor((len(cluster_obs) - 1) / 2)
+            ]
+
+        config["cell_meta"]["entries"][config_obs.index(default_clustering)][
+            "default"
+        ] = True
 
     # Describe dimension reductions stored in .obsm
 
@@ -398,6 +426,44 @@ def make_starting_config_from_anndata(
 
         config["dimension_reductions"]["entries"].append(obsm_entry)
 
+    # Add some placeholders to encourage users to fill in software
+
+    if software_versions_file is not None:
+        software_versions = pd.read_csv(software_versions_file, sep="\t")
+
+        if len(software_versions.columns) != 4:
+            errmsg = (
+                "{software_versions_file} is not a tab-delimited file with 4"
+                " columns."
+            )
+            raise Exception(errmsg)
+
+        sotware_versions.columns = [
+            "analysis",
+            "software",
+            "version",
+            "citation",
+        ]
+
+        config["software_versions"] = list(
+            software_versions.T.to_dict().values()
+        )
+    else:
+        for analysis in [
+            "reference",
+            "filtering and trimming",
+            "alignment",
+            "clustering",
+        ]:
+            config["software_versions"]["entries"].append(
+                {
+                    "analysis": analysis,
+                    "software": MISSING_STRING,
+                    "version": MISSING_STRING,
+                    "citation": MISSING_STRING,
+                }
+            )
+
     with open(config_file, "w") as file:
         yaml.dump(config, file)
 
@@ -406,9 +472,17 @@ def make_bundle_from_anndata(
     anndata_file,
     anndata_description_yaml,
     bundle_dir,
-    gene_name_field=None,
+    max_rank_for_stats=5,
     **kwargs,
 ):
+    """Build a bundle directory compatible with Single Cell Expression Atlas
+    (SCXA) build proceseses
+
+    \b
+    anndata_file - A file of the annData hdf5 specification, with all necessary
+                   information for SCXA.
+    bundle_dir   - A directory in which to create the bundle.
+    """
     # Make sure the config matches the schema and anndata
 
     config, adata = validate_anndata_with_config(
@@ -434,7 +508,6 @@ def make_bundle_from_anndata(
         bundle_dir=bundle_dir,
         adata=adata,
         config=config,
-        gene_name_field=gene_name_field,
     )
 
     # Write clusters (analytically derived cell groupings). For historical
@@ -469,6 +542,7 @@ def make_bundle_from_anndata(
         adata=adata,
         config=config,
         write_marker_stats=True,
+        max_rank_for_stats=max_rank_for_stats,
     )
 
     # Write any dim. reds from obsm
@@ -481,7 +555,22 @@ def make_bundle_from_anndata(
         config=config,
     )
 
+    # Write software table
+
+    print("Writing software table")
+    if len(config["software_versions"]) > 0:
+        pd.DataFrame(config["software_versions"]).to_csv(
+            f"{bundle_dir}/software.tsv", sep="\t", index=False
+        )
+        set_manifest_value(
+            manifest, "software_versions_file", f"{bundle_dir}/software.tsv"
+        )
+
     print("Writing annData file")
+
+    # Record the config in the object
+    adata.uns["scxa_config"] = config
+
     adata_filename = f"{config['exp-name']}.project.h5ad"
     adata.write(f"{bundle_dir}/{adata_filename}")
     set_manifest_value(manifest, "project_file", adata_filename)
@@ -492,7 +581,10 @@ def make_bundle_from_anndata(
 
 
 def write_matrices_from_adata(
-    manifest, bundle_dir, adata, config, gene_name_field
+    manifest,
+    bundle_dir,
+    adata,
+    config,
 ):
     for slot_def in config["matrices"]["entries"]:
         write_matrix_from_adata(
@@ -501,7 +593,7 @@ def write_matrices_from_adata(
             slot=slot_def["slot"],
             bundle_dir=bundle_dir,
             subdir=slot_def["name"],
-            gene_name_field=gene_name_field,
+            gene_name_field=config["gene_meta"]["name_field"],
         )
 
 
@@ -510,12 +602,12 @@ def write_clusters_from_adata(manifest, bundle_dir, adata, config):
     # Find the groups in obs that correspond to clusterings
     cluster_obs = [
         x["slot"]
-        for x in config["cell_groups"]["entries"]
+        for x in config["cell_meta"]["entries"]
         if x["kind"] == "clustering"
     ]
     default_cluster_obs = [
         x["default"]
-        for x in config["cell_groups"]["entries"]
+        for x in config["cell_meta"]["entries"]
         if x["kind"] == "clustering"
     ]
 
@@ -608,158 +700,6 @@ def write_matrix_from_adata(
     return manifest
 
 
-def create_bundle(
-    anndata_file,
-    anndata_description_yaml,
-    bundle_dir,
-    write_cellmeta=True,
-    write_genemeta=True,
-    nonmeta_var_patterns=None,
-    nonmeta_obs_patterns=None,
-    exp_desc=None,
-    software_versions_file=None,
-    raw_matrix_slot=None,
-    filtered_matrix_slot=None,
-    normalised_matrix_slot=None,
-    final_matrix_slot=None,
-    write_obsms=True,
-    obsms=None,
-    write_clusters=True,
-    clusters=None,
-    clusters_field_pattern="louvain",
-    default_clustering=None,
-    write_markers=True,
-    marker_clusterings=None,
-    metadata_marker_fields=None,
-    write_marker_stats=True,
-    marker_stats_layers=None,
-    max_rank_for_stats=4,
-    atlas_style=True,
-    write_anndata=True,
-):
-    """Build a bundle directory compatible with Single Cell Expression Atlas
-    (SCXA) build proceseses
-
-    \b
-    anndata_file - A file of the annData hdf5 specification, with all necessary
-                   information for SCXA.
-    bundle_dir   - A directory in which to create the bundle.
-    """
-
-    adata = sc.read(anndata_file)
-    config = load_doc(anndata_description_yaml)
-
-    # Remove anything completely empty in .obs or .var
-
-    # Add anything we need to augment the adata
-
-    if software_versions_file is not None:
-        adata.uns["software_versions"] = pd.read_csv(
-            software_versions_file, sep="\t"
-        )
-
-    if Path(bundle_dir).is_dir():
-        shutil.rmtree(bundle_dir)
-
-    pathlib.Path(f"{bundle_dir}/mage-tab").mkdir(parents=True)
-    pathlib.Path(f"{bundle_dir}/reference").mkdir()
-
-    manifest = read_file_manifest(bundle_dir)
-
-    if write_cellmeta:
-        print("Writing cell and run/sample metadata")
-        manifest = write_cell_metadata(
-            manifest,
-            adata,
-            bundle_dir,
-            config=config,
-            nonmeta_obs_patterns=nonmeta_obs_patterns,
-        )
-
-    if write_genemeta:
-        print("Writing gene-wise metadata")
-
-        genemeta_filename = f"{bundle_dir}/reference/gene_annotation.txt"
-        if nonmeta_var_patterns is None:
-            nonmeta_var_patterns = [
-                "mean",
-                "counts",
-                "n_cells",
-                "highly_variable",
-                "dispersion",
-            ]
-
-        nonmeta_cols = [
-            x
-            for x in adata.var.columns
-            if any([y in x for y in nonmeta_var_patterns])
-        ]
-        genemeta_cols = [x for x in adata.var.columns if x not in nonmeta_cols]
-
-        adata.var[genemeta_cols].to_csv(
-            genemeta_filename,
-            sep="\t",
-            header=True,
-            index=True,
-            index_label="gene_id",
-        )
-        manifest = set_manifest_value(
-            manifest, "gene_metadata", "reference/gene_annotation.txt"
-        )
-
-    if write_obsms:
-        print("Writing obsms to file")
-        obsms = adata.obsm.keys() if obsms is None else obsms
-
-        for obsm in obsms:
-            print(f"Writing {obsm}")
-            manifest = write_obsm_from_adata(
-                manifest,
-                adata,
-                obsm_name=obsm,
-                bundle_dir=bundle_dir,
-                atlas_style=atlas_style,
-            )
-
-    if write_markers:
-        print("Writing markers to file")
-        manifest = write_markers_from_adata(
-            manifest,
-            adata,
-            clusters=clusters,
-            marker_clusterings=marker_clusterings,
-            metadata_marker_fields=metadata_marker_fields,
-            bundle_dir=bundle_dir,
-            atlas_style=atlas_style,
-            max_rank_for_stats=max_rank_for_stats,
-            marker_stats_layers=marker_stats_layers,
-            write_marker_stats=write_marker_stats,
-        )
-
-    if "software_versions" in adata.uns:
-        print("Writing provided software info to bundle")
-        software_versions_outfile = f"{bundle_dir}/software.tsv"
-        adata.uns["software_versions"].to_csv(
-            software_versions_outfile, sep="\t", header=True, index=False
-        )
-        manifest = set_manifest_value(
-            manifest, "software_versions_file", "software.tsv"
-        )
-
-    # Write anndata
-
-    if write_anndata:
-
-        print("Writing annData file to bundle")
-        adata_filename = f"{config['exp-name']}.project.h5ad"
-        adata.write(f"{bundle_dir}/{adata_filename}")
-        manifest = set_manifest_value(manifest, "project_file", adata_filename)
-
-    # Write the final file manifest
-
-    write_file_manifest(bundle_dir, manifest)
-
-
 # Write cell metadata, including for curation as mage-tab
 
 
@@ -776,7 +716,7 @@ def write_cell_metadata(
     else:
         obs_columns = [
             slot_def["slot"]
-            for slot_def in config["cell_groups"]["entries"]
+            for slot_def in config["cell_meta"]["entries"]
             if slot_def["kind"] == kind
         ]
 
@@ -940,11 +880,11 @@ def write_markers_from_adata(
     adata,
     config,
     write_marker_stats=True,
-    max_rank_for_stats=4,
+    max_rank_for_stats=5,
 ):
     marker_groupings_kinds = [
         (x["slot"], x["kind"])
-        for x in config["cell_groups"]["entries"]
+        for x in config["cell_meta"]["entries"]
         if x["markers"]
     ]
     marker_groupings = [x[0] for x in marker_groupings_kinds]
@@ -1016,12 +956,14 @@ def write_markers_from_adata(
                     max_rank=max_rank_for_stats,
                     cell_group_kind=cell_group_kind,
                 )
-                for mg, de_table in de_tables.items()
+                for cell_grouping, de_table in de_tables.items()
             ]
         )
         statsfile = f"{bundle_dir}/{matrix_for_stats}_stats.csv"
 
-        marker_summary.to_csv(statsfile, index=False)
+        marker_summary.to_csv(
+            statsfile, index=False, quoting=csv.QUOTE_NONNUMERIC
+        )
         manifest = set_manifest_value(
             manifest, "marker_stats", statsfile, matrix_for_stats
         )
@@ -1038,8 +980,10 @@ def get_markers_table(adata, marker_grouping):
 
 
 def make_markers_summary(
-    adata, layer, marker_grouping, de_table, max_rank=4, cell_group_kind=None
+    adata, layer, marker_grouping, de_table, max_rank=5, cell_group_kind=None
 ):
+
+    print(f"... calculating stats for cell grouping {marker_grouping}")
 
     summary_stats = (
         pd.concat(
@@ -1072,7 +1016,13 @@ def make_markers_summary(
     )
 
     if max_rank:
-        markers_summary = markers_summary[markers_summary["rank"] <= max_rank]
+        print(
+            f"...... limiting stats report to top {max_rank} differential"
+            " genes"
+        )
+        markers_summary = markers_summary[
+            markers_summary["rank"] <= (max_rank - 1)
+        ]
 
     # For unsupervised clusterings, record the grouping as k and increment the
     # group numbers so they start from 1
@@ -1085,6 +1035,11 @@ def make_markers_summary(
             markers_summary["cluster_id"] = [
                 int(x) + 1 for x in markers_summary["cluster_id"]
             ]
+
+    # Convert cell group columns to strings
+
+    for col in ["grouping_where_marker", "group_where_marker", "cluster_id"]:
+        markers_summary[col] = markers_summary[col].astype(str)
 
     return markers_summary[
         [

@@ -35,8 +35,14 @@ properties:
                             type: object
                     required: [ name, measure, gene_filtered, normalised, log_transformed ]
                     additionalProperties: False
+    gene_meta:
+        type: object
+        properties:
+            name_field:
+                type: string
+        required: [ name_field ]
 
-    cell_groups:
+    cell_meta:
         type: object
         properties:
             entries:
@@ -75,7 +81,20 @@ properties:
                         parameters:
                             type: object
                     required: [ slot, kind ]
-     
+
+    software_versions:
+        type: array
+        items:
+            type: object
+            properties:
+                analysis:
+                    type: string
+                software:
+                    type: string
+                version:
+                    type: string
+            required: [ analysis, software, version ]
+
 required:
   - matrices
   - exp-name

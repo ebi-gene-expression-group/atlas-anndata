@@ -2,7 +2,6 @@
 
 import click
 from scanpy_scripts.click_utils import CommaSeparatedText
-from atlas_anndata import make_bundle_from_anndata
 
 
 @click.command()
@@ -10,184 +9,17 @@ from atlas_anndata import make_bundle_from_anndata
 @click.argument("anndata_description_yaml", type=click.Path(exists=True))
 @click.argument("bundle_dir", type=click.Path(dir_okay=True))
 @click.option(
-    "--write-cellmeta/--no-write-cellmeta",
-    default=True,
-    is_flag=True,
-    help="Write a table of cell-wise metadata from .obs.",
-)
-@click.option(
-    "--write-genemeta/--no-write-genemeta",
-    default=True,
-    is_flag=True,
-    help="Write a table of gene-wise metadata from .var.",
-)
-@click.option(
-    "--exp-desc",
-    default=None,
-    help=(
-        "Provide an experiment description file. If unspecified, the script"
-        ' will check for a slot called "experiment" in the .uns slot of the'
-        " annData object, and use that to create a starting version of an IDF"
-        " file."
-    ),
-    type=click.Path(exists=True),
-)
-@click.option(
-    "--software-versions-file",
-    default=None,
-    help=(
-        "A 4-column TSV detailing software used in different stages of"
-        " analysis"
-    ),
-    type=click.Path(exists=True),
-)
-@click.option(
-    "--raw-matrix-slot",
-    default=None,
-    help=(
-        "Slot where the most raw and least filtered expression data are"
-        " stored. This is usually in raw.X, other values will be interpreted"
-        ' as layers (in .raw if prefixed with "raw". annData requires that'
-        " .raw.X and .X match in .obs, so even when stored in .raw this will"
-        " have to be the matrix afer cell filtering, but should ideally not be"
-        " gene-filtered."
-    ),
-)
-@click.option(
-    "--filtered-matrix-slot",
-    default=None,
-    help=(
-        'Layer name or "X", specifying storage location for gene-filtered'
-        " matrix before transformations such as log transform, scaling etc."
-    ),
-)
-@click.option(
-    "--normalised-matrix-slot",
-    default=None,
-    help=(
-        'Layer name or "X", specifiying storage location for normalised'
-        " matrix."
-    ),
-)
-@click.option(
-    "--final-matrix-slot",
-    default=None,
-    help=(
-        'Layer name or "X", specifiying storage location for the final matrix'
-        " after processing. Will usually be in .X."
-    ),
-)
-@click.option(
-    "--write-obsms/--no-write-obsms",
-    default=True,
-    is_flag=True,
-    help="Write dimension reductions from .obsm to the bundle?",
-)
-@click.option(
-    "--obsms",
-    type=CommaSeparatedText(),
-    help=(
-        "A comma-separated list of obsm slots to write. Default is to write"
-        " them all."
-    ),
-)
-@click.option(
-    "--write-clusters/--no--write--clusters",
-    default=True,
-    is_flag=True,
-    help="Write cluster data to the bundle?",
-)
-@click.option(
-    "--clusters",
-    type=CommaSeparatedText(),
-    help=(
-        "A comma-separated list of .obs slots corresponding to unsupervised"
-        " clusterings."
-    ),
-)
-@click.option(
-    "--clusters-field-pattern",
-    default="louvain",
-    help=(
-        "If --clusters not supplied, a string to be used to select columns"
-        " from .obs representing unsupervised clusterings."
-    ),
-)
-@click.option(
-    "--default-clustering",
-    help=(
-        "Where --write-clusters is set, which clustering should be set as the"
-        " default? If not set, the middle (or first middle) clustering will be"
-        " selected, or if --atlas-style is set, this will be the clustering"
-        " corresponding to a resolution of 1."
-    ),
-)
-@click.option(
-    "--write-markers/--no--write--markers",
-    default=True,
-    is_flag=True,
-    help="Write marker data to the bundle?",
-)
-@click.option(
-    "--marker-clusterings",
-    type=CommaSeparatedText(),
-    help=(
-        "A comma-separated list of clusterings for which to write markers."
-        " marker results are expected to be stored in .uns under keys like"
-        ' "markers_{clustering}. Defaults to all selected clusterings.'
-    ),
-)
-@click.option(
-    "--metadata-marker-fields",
-    type=CommaSeparatedText(),
-    help=(
-        "A comma-separated list of .obs slots corresponding to metadata"
-        " variables for which markers have been derived."
-    ),
-)
-@click.option(
-    "--write-marker-stats/--no--write--marker-stats",
-    default=True,
-    is_flag=True,
-    help=(
-        "Write marker summary statistics (mean, median expression) to the"
-        " bundle?"
-    ),
-)
-@click.option(
-    "--marker-stats-layers",
-    type=CommaSeparatedText(),
-    help=(
-        "A comma-separated list of layers from which expression values should"
-        " be summarised in marker statistics."
-    ),
-)
-@click.option(
     "--max-rank-for-stats",
     type=click.INT,
-    default=4,
+    default=5,
     help=(
         "For how many top marker genes should stats (mean, median expression)"
         " be output?"
     ),
 )
-@click.option(
-    "--atlas-style",
-    default="run",
-    help="Assume the tight conventions from SCXA, e.g. on .obsm slot naming",
-)
-@click.option(
-    "--gene-name-field",
-    default="gene_name",
-    help="Field in .var where gene name (symbol) is stored.",
-)
-@click.option(
-    "--write-anndata/--no--write--anndata",
-    default=True,
-    is_flag=True,
-    help="Write the annData file itself to the bundle?",
-)
 def make_bundle(*args, **kwargs):
+    from atlas_anndata import make_bundle_from_anndata
+
     make_bundle_from_anndata(*args, **kwargs)
 
 

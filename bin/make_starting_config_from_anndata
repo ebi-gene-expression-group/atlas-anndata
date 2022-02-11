@@ -16,6 +16,14 @@ from atlas_anndata import make_starting_config_from_anndata
     help="Assume the tight conventions from SCXA, e.g. on .obsm slot naming?",
 )
 @click.option(
+    "--software-versions-file",
+    type=click.Path(exists=True),
+    help=(
+        "A four-column tab-delimited file with analys, software, version and"
+        " citation"
+    ),
+)
+@click.option(
     "--exp-name",
     required=True,
     help=(
@@ -29,6 +37,20 @@ from atlas_anndata import make_starting_config_from_anndata
     default=False,
     is_flag=True,
     help="Is this a droplet experiment?",
+)
+@click.option(
+    "--gene-name-field",
+    default="gene_name",
+    help="Field in .var where gene name (symbol) is stored.",
+)
+@click.option(
+    "--default-clustering",
+    help=(
+        "Of the unsupervised clusterings, which clustering should be set as"
+        " the default? If not set, the middle (or first middle) clustering"
+        " will be selected, or if --atlas-style is set, this will be the"
+        " clustering corresponding to a resolution of 1."
+    ),
 )
 def write_config(*args, **kwargs):
     make_starting_config_from_anndata(*args, **kwargs)

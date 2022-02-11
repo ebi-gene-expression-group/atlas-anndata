@@ -43,7 +43,7 @@ matrices:
 # Cell groupings marked with 'markers: True' will have those markers written to
 # the bundle
 
-cell_groups:
+cell_meta:
   entries:
   - slot: organism_part
     kind: curation
@@ -85,3 +85,9 @@ dimension_reductions:
     default: True
     parameters:
      n_neighbors: 10
+
+
+
+
+
+
