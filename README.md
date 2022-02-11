@@ -116,6 +116,27 @@ Once the configuration file is complete, with all necesary info, the bundle gene
 make_bundle_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml test_bundle
 ```
 
+Detailed help for this command is:
+
+```
+Usage: make_bundle_from_anndata [OPTIONS] ANNDATA_FILE ANNDATA_CONFIG
+                                BUNDLE_DIR
+
+  Build a bundle directory compatible with Single Cell Expression Atlas (SCXA)
+  build proceseses
+
+  anndata_file   - A file of the annData hdf5 specification, with all
+                   necessaryinformation for SCXA.
+  anndata_config - A config file generated with
+                   `make_starting_config_from_anndata` and manually edited to
+                   supply necessary information.
+  bundle_dir     - A directory in which to create the bundle.
+
+Options:
+  --max-rank-for-stats INTEGER  For how many top marker genes should stats
+                                (mean, median expression) be output?
+  --help                        Show this message and exit.
+```
 
 ## Command help
 
