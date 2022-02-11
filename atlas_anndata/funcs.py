@@ -477,9 +477,7 @@ def make_bundle_from_anndata(
 ):
     # Make sure the config matches the schema and anndata
 
-    config, adata = validate_anndata_with_config(
-        anndata_config, anndata_file
-    )
+    config, adata = validate_anndata_with_config(anndata_config, anndata_file)
 
     # Clear and create the output location
 
