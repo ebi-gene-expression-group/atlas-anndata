@@ -45,6 +45,7 @@ def validate_config(config):
     True
     """
 
+    # Validate against the schema
     schema = load_doc(schema_file)
 
     try:
@@ -52,6 +53,16 @@ def validate_config(config):
     except jsonschema.exceptions.ValidationError as err:
         print(err, file=sys.stderr)
         return False
+
+    # Also check that no blank values have been left in
+
+    from atlas_anndata import MISSING
+
+    if MISSING in str(config):
+        raise Exception(
+            f"Please complete all {MISSING} fields in config before trying to make a bundle."
+        )
+
     return True
 
 
