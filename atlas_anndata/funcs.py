@@ -59,9 +59,11 @@ def validate_config(config):
     from atlas_anndata import MISSING
 
     if MISSING in str(config):
-        raise Exception(
-            f"Please complete all {MISSING} fields in config before trying to make a bundle."
+        errmsg = (
+            f"Please complete all {MISSING} fields in config before trying to"
+            " make a bundle."
         )
+        raise Exception(errmsg)
 
     return True
 
@@ -132,8 +134,8 @@ def validate_anndata_with_config(config_file, anndata_file):
     if config_status:
         print("Config YAML file successfully validated")
     else:
-        print("FAILURE")
-        sys.exit(1)
+        errmsg = "Failed to validate config YAML"
+        raise Exception(errmsg)
 
     # Now check that the things the YAML said about the annData file are true
 
@@ -148,11 +150,11 @@ def validate_anndata_with_config(config_file, anndata_file):
         if slot_type in config:
             for slot_def in config[slot_type]["entries"]:
                 if not check_slot(adata, slot_type, slot_def["slot"]):
-                    print(
+                    errmsg = (
                         f"{slot_type} entry {slot_def['slot']} not present in"
                         f" anndata file {anndata_file}"
                     )
-                    sys.exit(1)
+                    raise Exception(errmsg)
 
     print(f"annData file successfully validated against config {config_file}")
     return (config, adata)
@@ -801,13 +803,13 @@ def write_cell_metadata(
             try:
                 runs, barcodes = zip(*(s.split("-") for s in adata.obs_names))
             except ValueError as e:
-                print(
+                errmsg = (
                     f"Error deriving run and barcode lists: {e}. Cell names"
                     " likely don't match expected <run or sample>_<barcode>"
                     " naming format for droplet experiments. First cell name"
                     f" is: {adata.obs_names[0]}"
                 )
-                sys.exit(1)
+                raise Exception(errmsg)
 
             cell_metadata["cell barcode"] = barcodes
 
