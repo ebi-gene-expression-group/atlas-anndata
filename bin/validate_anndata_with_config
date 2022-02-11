@@ -8,10 +8,10 @@ from atlas_anndata import validate_anndata_with_config
 @click.argument("anndata_config", type=click.Path(exists=True))
 @click.argument("anndata_file", type=click.Path(exists=True))
 def validate_anndata(*args, **kwargs):
-    
+
     """Validate a YAML format config file describing an annData file for
     ingestion into Single Cell Expression Atlas
-    
+
     \b
     anndata_file   - A file of the annData hdf5 specification, with all
                      necessaryinformation for SCXA.

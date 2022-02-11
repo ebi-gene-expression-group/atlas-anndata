@@ -55,7 +55,7 @@ from atlas_anndata import make_starting_config_from_anndata
 def write_config(*args, **kwargs):
     """Make a starting config describing an anndata file, for use in making
     analysis bundles for input into Single Cell Expression Atlas (SCXA)
-    
+
     \b
     anndata_file   - A file of the annData hdf5 specification, with all
                      necessaryinformation for SCXA.
