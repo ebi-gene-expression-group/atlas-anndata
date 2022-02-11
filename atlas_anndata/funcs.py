@@ -170,7 +170,9 @@ def validate_anndata_with_config(anndata_config, anndata_file):
     if "name_field" in config["gene_meta"]:
         check_slot(adata, "gene_meta", config["gene_meta"]["name_field"])
 
-    print(f"annData file successfully validated against config {anndata_config}")
+    print(
+        f"annData file successfully validated against config {anndata_config}"
+    )
     return (config, adata)
 
 
