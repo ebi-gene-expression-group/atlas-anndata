@@ -6,7 +6,7 @@ from scanpy_scripts.click_utils import CommaSeparatedText
 
 @click.command()
 @click.argument("anndata_file", type=click.Path(exists=True))
-@click.argument("anndata_description_yaml", type=click.Path(exists=True))
+@click.argument("anndata_config", type=click.Path(exists=True))
 @click.argument("bundle_dir", type=click.Path(dir_okay=True))
 @click.option(
     "--max-rank-for-stats",
@@ -18,6 +18,19 @@ from scanpy_scripts.click_utils import CommaSeparatedText
     ),
 )
 def make_bundle(*args, **kwargs):
+
+    """Build a bundle directory compatible with Single Cell Expression Atlas
+    (SCXA) build proceseses
+
+    \b
+    anndata_file   - A file of the annData hdf5 specification, with all
+                     necessaryinformation for SCXA.
+    anndata_config - A config file generated with
+                     `make_starting_config_from_anndata` and manually edited to
+                     supply necessary information.
+    bundle_dir     - A directory in which to create the bundle.
+    """
+
     from atlas_anndata import make_bundle_from_anndata
 
     make_bundle_from_anndata(*args, **kwargs)

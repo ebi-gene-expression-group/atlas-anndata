@@ -470,23 +470,15 @@ def make_starting_config_from_anndata(
 
 def make_bundle_from_anndata(
     anndata_file,
-    anndata_description_yaml,
+    anndata_config,
     bundle_dir,
     max_rank_for_stats=5,
     **kwargs,
 ):
-    """Build a bundle directory compatible with Single Cell Expression Atlas
-    (SCXA) build proceseses
-
-    \b
-    anndata_file - A file of the annData hdf5 specification, with all necessary
-                   information for SCXA.
-    bundle_dir   - A directory in which to create the bundle.
-    """
     # Make sure the config matches the schema and anndata
 
     config, adata = validate_anndata_with_config(
-        anndata_description_yaml, anndata_file
+        anndata_config, anndata_file
     )
 
     # Clear and create the output location
