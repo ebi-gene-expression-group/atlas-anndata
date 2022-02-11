@@ -8,7 +8,7 @@ from atlas_anndata import make_starting_config_from_anndata
 
 @click.command()
 @click.argument("anndata_file", type=click.Path(exists=True))
-@click.argument("config_file", type=click.Path())
+@click.argument("anndata_config", type=click.Path())
 @click.option(
     "--atlas-style",
     default=False,
@@ -53,6 +53,14 @@ from atlas_anndata import make_starting_config_from_anndata
     ),
 )
 def write_config(*args, **kwargs):
+    """Build a bundle directory compatible with Single Cell Expression Atlas
+    (SCXA) build proceseses
+
+    \b
+    anndata_file   - A file of the annData hdf5 specification, with all
+                     necessaryinformation for SCXA.
+    anndata_config - File path to write YAML config.
+    """
     make_starting_config_from_anndata(*args, **kwargs)
 
 
