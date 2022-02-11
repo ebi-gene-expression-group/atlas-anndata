@@ -438,7 +438,7 @@ def make_starting_config_from_anndata(
             )
             raise Exception(errmsg)
 
-        sotware_versions.columns = [
+        software_versions.columns = [
             "analysis",
             "software",
             "version",
