@@ -111,7 +111,7 @@ def check_slot(adata, slot_type, slot_name):
         raise Exception(errmsg)
 
 
-def validate_anndata_with_config(config_file, anndata_file):
+def validate_anndata_with_config(anndata_config, anndata_file):
 
     """Validate an anndata against a config
 
@@ -135,11 +135,11 @@ def validate_anndata_with_config(config_file, anndata_file):
     annData file successfully validated against config ...
     """
 
-    config = load_doc(config_file)
+    config = load_doc(anndata_config)
 
     # First validate the anndata descripton file against the YAML schema
 
-    print(f"Validating {config_file} against {schema_file}")
+    print(f"Validating {anndata_config} against {schema_file}")
     config_status = validate_config(config)
 
     if config_status:
@@ -170,7 +170,7 @@ def validate_anndata_with_config(config_file, anndata_file):
     if "name_field" in config["gene_meta"]:
         check_slot(adata, "gene_meta", config["gene_meta"]["name_field"])
 
-    print(f"annData file successfully validated against config {config_file}")
+    print(f"annData file successfully validated against config {anndata_config}")
     return (config, adata)
 
 
@@ -291,7 +291,7 @@ def string_to_numeric(numberstring):
 
 def make_starting_config_from_anndata(
     anndata_file,
-    config_file,
+    anndata_config,
     atlas_style=False,
     exp_name=None,
     droplet=False,
@@ -464,7 +464,7 @@ def make_starting_config_from_anndata(
                 }
             )
 
-    with open(config_file, "w") as file:
+    with open(anndata_config, "w") as file:
         yaml.dump(config, file)
 
 
