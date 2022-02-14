@@ -8,7 +8,7 @@ This is the implementation of an [internal strategy document](https://docs.googl
 
 ## Analysis bundles
 
-### What make analysis bundle?
+### What make an analysis bundle?
 
 An SCXA analysis bundle contains:
 
@@ -84,7 +84,7 @@ pip install .
 
 ### 1. Produce a YAML format annData description file
 
-To produce a valid bundle from an anndata file, we need to describe that file, outlining which of the cell/ gene metadata columns, matrices,dimension reductions etc should be included. This is done via a YAML-format config file (see [example]{example_config.yaml}).
+To produce a valid bundle from an anndata file, we need to describe that file, outlining which of the cell/ gene metadata columns, matrices,dimension reductions etc should be included. This is done via a YAML-format config file (see [example](atlas_anndata/example_config.yaml)).
 
 A starting configuration can be produced directly from the annData file using the `make_starting_config_from_anndata`. Usage for this command is:
 
