@@ -1,8 +1,6 @@
 id: atlas-anndata-bundle
 description: "A full decription of an annData file presented as a candidate for bundling and ingestion into Single-cell Expression Atlas."
 properties:
-    exp-name: 
-        type: string
     droplet:
         type: boolean
     matrices:
@@ -100,6 +98,5 @@ properties:
 
 required:
   - matrices
-  - exp-name
   - droplet
   - analysis_versions
