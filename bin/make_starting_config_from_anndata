@@ -24,15 +24,6 @@ from atlas_anndata import make_starting_config_from_anndata
     ),
 )
 @click.option(
-    "--exp-name",
-    required=True,
-    help=(
-        "Specify an Expression Atlas identifier that will be used for this"
-        " experiment. If not set, a placeholder value E-EXP-1234 will be used"
-        " and can be edited in the bundle later."
-    ),
-)
-@click.option(
     "--droplet",
     default=False,
     is_flag=True,

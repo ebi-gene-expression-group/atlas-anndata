@@ -373,7 +373,6 @@ def make_starting_config_from_anndata(
     from atlas_anndata import MISSING_STRING
 
     config = {
-        "exp-name": exp_name,
         "droplet": droplet,
         "matrices": {"load_to_scxa_db": MISSING_STRING, "entries": []},
         "gene_meta": {"name_field": gene_name_field},
@@ -523,6 +522,8 @@ def make_bundle_from_anndata(
     anndata_config,
     bundle_dir,
     max_rank_for_stats=5,
+    exp_name="NONAME",
+    write_premagetab=False,
     **kwargs,
 ):
     # Make sure the config matches the schema and anndata
@@ -570,7 +571,8 @@ def make_bundle_from_anndata(
         bundle_dir=bundle_dir,
         config=config,
         kind="curation",
-        write_premagetab=True,
+        exp_name=exp_name,
+        write_premagetab=write_premagetab,
     )
 
     # Write any associated markers
@@ -611,7 +613,7 @@ def make_bundle_from_anndata(
     # Record the config in the object
     adata.uns["scxa_config"] = config
 
-    adata_filename = f"{config['exp-name']}.project.h5ad"
+    adata_filename = f"{exp_name}.project.h5ad"
     adata.write(f"{bundle_dir}/{adata_filename}")
     set_manifest_value(manifest, "project_file", adata_filename)
 
@@ -744,7 +746,13 @@ def write_matrix_from_adata(
 
 
 def write_cell_metadata(
-    manifest, adata, bundle_dir, config, kind=None, write_premagetab=False
+    manifest,
+    adata,
+    bundle_dir,
+    config,
+    kind=None,
+    write_premagetab=False,
+    exp_name="NONAME",
 ):
 
     # By default print all obs columns, but that's probably not we want in most
@@ -761,9 +769,9 @@ def write_cell_metadata(
         ]
 
     print("Writing cell metdata to be used in curation")
-    cellmeta_filename = f"{config['exp-name']}.cell_metadata.tsv"
-    presdrf_filename = f"mage-tab/{config['exp-name']}.presdrf.txt"
-    precells_filename = f"mage-tab/{config['exp-name']}.precells.txt"
+    cellmeta_filename = f"{exp_name}.cell_metadata.tsv"
+    presdrf_filename = f"mage-tab/{exp_name}.presdrf.txt"
+    precells_filename = f"mage-tab/{exp_name}.precells.txt"
     pathlib.Path(f"{bundle_dir}/mage-tab").mkdir(parents=True, exist_ok=True)
 
     cell_metadata = adata.obs[obs_columns].copy()

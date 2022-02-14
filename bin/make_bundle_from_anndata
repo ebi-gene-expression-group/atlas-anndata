@@ -17,7 +17,24 @@ from scanpy_scripts.click_utils import CommaSeparatedText
         " be output?"
     ),
 )
-def make_bundle(*args, **kwargs):
+@click.option(
+    "--write-premagetab",
+    default=False,
+    is_flag=True,
+    help="Should we write pre-magetab files for curation by SCXA team?",
+)
+@click.option(
+    "--exp-name",
+    required=True,
+    default='NONAME',
+    help=(
+        "Specify an Expression Atlas identifier that will be used for this"
+        " experiment. If not set, a placeholder value E-EXP-1234 will be used"
+        " and can be edited in the bundle later."
+    ),
+)
+@click.option("--magetab-dir", type=click.Path(dir_okay=True), default=None)
+def make_bundle(*args, write_premagetab=False, magetab_dir=None, **kwargs):
 
     """Build a bundle directory compatible with Single Cell Expression Atlas
     (SCXA) build proceseses
@@ -33,7 +50,24 @@ def make_bundle(*args, **kwargs):
 
     from atlas_anndata import make_bundle_from_anndata
 
-    make_bundle_from_anndata(*args, **kwargs)
+    if (magetab_dir is None and not write_premagetab) or (
+        magetab_dir is not None and write_premagetab
+    ):
+        errmsg = (
+            "You need to use either --write-premagetab OR --magetab-dir,"
+            " indicating a first run to discover metadata for curation by the"
+            " SCXA team, or a second run passing MAGE-TAB format curated"
+            " metadata for inclusion in the bundle. Do not specify neither, or"
+            " both."
+        )
+        raise Exception(errmsg)
+
+    make_bundle_from_anndata(
+        *args,
+        write_premagetab=write_premagetab,
+        magetab_dir=magetab_dir,
+        **kwargs
+    )
 
 
 if __name__ == "__main__":
