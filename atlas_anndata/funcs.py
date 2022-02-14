@@ -294,6 +294,51 @@ def string_to_numeric(numberstring):
         return float(numberstring)
 
 
+def read_analysis_versions_file(analysis_versions_file, atlas_style=False):
+
+    analysis_versions = pd.read_csv(analysis_versions_file, sep="\t")
+    analysis_versions.columns = [x.lower() for x in analysis_versions.columns]
+
+    # We need a 'kind' to differentiate software and e.g. reference files.
+    # Atlas hasn't had it up to now (we kind of shoehorned references in
+    # to the software field), but we know what the content of our versions
+    # file is, so we can infer it.
+
+    analysis_versions.rename(columns={"software": "asset"}, inplace = True)
+
+    required_versions_columns = [
+        "analysis",
+        "asset",
+        "version",
+        "citation",
+    ]
+    if not atlas_style:
+        required_versions_columns.append("kind")
+
+    if not set(required_versions_columns).issubset(analysis_versions.columns):
+        errmsg = (
+            "Analysis versions file must have at least columns"
+            f" {required_versions_columns}, recieved"
+            f" {analysis_versions.columns}"
+        )
+        raise Exception(errmsg)
+    else:
+        if "kind" not in analysis_versions.columns:
+            required_versions_columns.append(
+                "kind"
+            )
+            analysis_versions["kind"] = [
+                "file" if x.lower() == "reference" else "software"
+                for x in analysis_versions["analysis"]
+            ]
+
+    # Remove any other columns that might be present
+
+    analysis_versions = analysis_versions[required_versions_columns]
+
+    return analysis_versions
+
+
 def make_starting_config_from_anndata(
     anndata_file,
     anndata_config,
@@ -302,7 +347,7 @@ def make_starting_config_from_anndata(
     droplet=False,
     gene_name_field="gene_name",
     default_clustering=None,
-    software_versions_file=None,
+    analysis_versions_file=None,
 ):
 
     """
@@ -322,7 +367,7 @@ def make_starting_config_from_anndata(
         "gene_meta": {"name_field": gene_name_field},
         "cell_meta": {"entries": []},
         "dimension_reductions": {"entries": []},
-        "software_versions": {"entries": []},
+        "analysis_versions": [],
     }
 
     # Describe the matrices
@@ -433,25 +478,12 @@ def make_starting_config_from_anndata(
 
     # Add some placeholders to encourage users to fill in software
 
-    if software_versions_file is not None:
-        software_versions = pd.read_csv(software_versions_file, sep="\t")
-
-        if len(software_versions.columns) != 4:
-            errmsg = (
-                "{software_versions_file} is not a tab-delimited file with 4"
-                " columns."
-            )
-            raise Exception(errmsg)
-
-        software_versions.columns = [
-            "analysis",
-            "software",
-            "version",
-            "citation",
-        ]
-
-        config["software_versions"] = list(
-            software_versions.T.to_dict().values()
+    if analysis_versions_file is not None:
+        analysis_versions = read_analysis_versions_file(
+            analysis_versions_file, atlas_style=atlas_style
+        )
+        config["analysis_versions"] = list(
+            analysis_versions.T.to_dict().values()
         )
     else:
         for analysis in [
@@ -460,9 +492,10 @@ def make_starting_config_from_anndata(
             "alignment",
             "clustering",
         ]:
-            config["software_versions"]["entries"].append(
+            config["analysis_versions"].append(
                 {
                     "analysis": analysis,
+                    "kind": "file" if analysis == "reference" else "software",
                     "software": MISSING_STRING,
                     "version": MISSING_STRING,
                     "citation": MISSING_STRING,
@@ -552,13 +585,13 @@ def make_bundle_from_anndata(
 
     # Write software table
 
-    print("Writing software table")
-    if len(config["software_versions"]) > 0:
-        pd.DataFrame(config["software_versions"]).to_csv(
+    print("Writing analysis versions table")
+    if len(config["analysis_versions"]) > 0:
+        pd.DataFrame(config["analysis_versions"]).to_csv(
             f"{bundle_dir}/software.tsv", sep="\t", index=False
         )
         set_manifest_value(
-            manifest, "software_versions_file", f"{bundle_dir}/software.tsv"
+            manifest, "analysis_versions_file", f"{bundle_dir}/software.tsv"
         )
 
     print("Writing annData file")

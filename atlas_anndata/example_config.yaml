@@ -93,8 +93,11 @@ dimension_reductions:
     parameters:
      n_neighbors: 10
 
+# Analysis version specifications (software, files etc)
 
-
-
-
-
+analysis_versions:
+- analysis: Pipeline
+  citation: https://github.com/ebi-gene-expression-group/scxa-control-workflow
+  asset: Gene expression group single-cell analysis pipeline (Nextflow)
+  version: 20.04.1
+  kind: software

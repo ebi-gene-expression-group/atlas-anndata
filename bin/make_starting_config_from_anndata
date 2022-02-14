@@ -16,10 +16,10 @@ from atlas_anndata import make_starting_config_from_anndata
     help="Assume the tight conventions from SCXA, e.g. on .obsm slot naming?",
 )
 @click.option(
-    "--software-versions-file",
+    "--analysis-versions-file",
     type=click.Path(exists=True),
     help=(
-        "A four-column tab-delimited file with analys, software, version and"
+        "A four-column tab-delimited file with analys, analysis, version and"
         " citation"
     ),
 )

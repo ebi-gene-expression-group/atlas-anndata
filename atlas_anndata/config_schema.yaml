@@ -82,20 +82,24 @@ properties:
                             type: object
                     required: [ slot, kind ]
 
-    software_versions:
+    analysis_versions:
         type: array
         items:
             type: object
             properties:
                 analysis:
                     type: string
-                software:
+                analysis:
                     type: string
                 version:
                     type: string
-            required: [ analysis, software, version ]
+                kind:
+                    type: string
+                    pattern: "^(software|file)$"
+            required: [ analysis, asset, version, kind ]
 
 required:
   - matrices
   - exp-name
   - droplet
+  - analysis_versions
