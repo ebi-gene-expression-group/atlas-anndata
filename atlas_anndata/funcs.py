@@ -110,6 +110,7 @@ def check_slot(adata, slot_type, slot_name):
     if not check_result:
         raise Exception(errmsg)
 
+    return check_result
 
 def validate_anndata_with_config(anndata_config, anndata_file):
 
@@ -132,6 +133,7 @@ def validate_anndata_with_config(anndata_config, anndata_file):
     Checking for dimension_reductions X_umap_neighbors_n_neighbors_3
     Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
     Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
+    Checking for gene_meta gene_name
     annData file successfully validated against config ...
     """
 
