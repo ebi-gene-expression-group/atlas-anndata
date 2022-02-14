@@ -501,7 +501,7 @@ def make_starting_config_from_anndata(
         for analysis in [
             "reference",
             "filtering and trimming",
-            "alignment",
+            "mapping",
             "clustering",
         ]:
             config["analysis_versions"].append(
