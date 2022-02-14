@@ -175,7 +175,9 @@ def validate_anndata_with_config(anndata_config, anndata_file):
 
     # Check that some necessary version info is present
 
-    analysis_names = [x["analysis"].lower() for x in config["analysis_versions"]]
+    analysis_names = [
+        x["analysis"].lower() for x in config["analysis_versions"]
+    ]
     required_analyses = ["reference", "mapping"]
     if not set(required_analyses).issubset(analysis_names):
         errmsg = (
