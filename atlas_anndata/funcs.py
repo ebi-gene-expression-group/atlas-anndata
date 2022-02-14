@@ -421,6 +421,15 @@ def make_starting_config_from_anndata(
 
         config["matrices"]["entries"].append(matrix_entry)
 
+    # Check that we actually have some obs
+
+    if len(adata.obs.columns) == 0:
+        errmsg = (
+            "Object in {anndata_file} has no obs (cell metadata at all) and as"
+            " such is not a candidate for inclusion in SCXA."
+        )
+        raise Exception(errmsg)
+
     # Describe cell-wise metadata columns
 
     for obs in adata.obs.columns:
