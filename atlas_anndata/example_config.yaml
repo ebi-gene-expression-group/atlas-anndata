@@ -96,6 +96,17 @@ dimension_reductions:
 # Analysis version specifications (software, files etc)
 
 analysis_versions:
+- analysis: Reference
+  asset: Ensembl
+  citation: Danio_rerio.GRCz11.cdna.all.104.fa.gz, Danio_rerio.GRCz11.104.gtf.gz
+  kind: file
+  version: '104'
+- analysis: Mapping
+  asset: kallisto
+  citation: "Nicolas L Bray, Harold Pimentel, P\xE1ll Melsted, Lior Pachter. Near-optimal\
+    \ probabilistic RNA-seq quantification. Nature Biotechnology (2016)."
+  kind: software
+  version: 0.46.2
 - analysis: Pipeline
   citation: https://github.com/ebi-gene-expression-group/scxa-control-workflow
   asset: Gene expression group single-cell analysis pipeline (Nextflow)
