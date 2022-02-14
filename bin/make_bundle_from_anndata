@@ -26,7 +26,7 @@ from scanpy_scripts.click_utils import CommaSeparatedText
 @click.option(
     "--exp-name",
     required=True,
-    default='NONAME',
+    default="NONAME",
     help=(
         "Specify an Expression Atlas identifier that will be used for this"
         " experiment. If not set, a placeholder value E-EXP-1234 will be used"
