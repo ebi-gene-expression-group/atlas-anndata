@@ -32,7 +32,19 @@ jobs:
           python atlas_anndata/funcs.py
       - name: Test CLI, config creation from annData
         run: |
-          make_starting_config_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml --atlas-style --exp-name E-MTAB=1234 --droplet
-      - name: Test CLI, Validate annData against schema and config
+          make_starting_config_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml --atlas-style
+      - name: Fill blanks in starting config
+        run: |
+          sed -i 's/FILL ME with a string/foo/g'  test_config_from_anndata.yaml 
+          sed -i '0,/name: foo/{s/name: foo/name: raw/}' test_config_from_anndata.yaml
+          sed -i '0,/name: foo/{s/name: foo/name: scaled/}' test_config_from_anndata.yaml
+          sed -i '0,/ load_to_scxa_db: foo/{s/ load_to_scxa_db: foo/ load_to_scxa_db: normalised/}' test_config_from_anndata.yaml
+      - name: Test CLI, Validate annData against schema and generated config
         run: |
           validate_anndata_with_config test_config_from_anndata.yaml atlas_anndata/data/E-MTAB-6077.project.h5ad
+      - name: Test CLI, Validate annData against schema and example config
+        run: |
+          validate_anndata_with_config atlas_anndata/example_config.yaml atlas_anndata/data/E-MTAB-6077.project.h5ad
+      - name: Test CLI, Write bundle from config and adata (for pre-MAGE-TAB)
+        run: |
+          make_bundle_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml test_bundle --write-premagetab

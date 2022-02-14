@@ -8,7 +8,7 @@ from atlas_anndata import make_starting_config_from_anndata
 
 @click.command()
 @click.argument("anndata_file", type=click.Path(exists=True))
-@click.argument("config_file", type=click.Path())
+@click.argument("anndata_config", type=click.Path())
 @click.option(
     "--atlas-style",
     default=False,
@@ -16,12 +16,11 @@ from atlas_anndata import make_starting_config_from_anndata
     help="Assume the tight conventions from SCXA, e.g. on .obsm slot naming?",
 )
 @click.option(
-    "--exp-name",
-    required=True,
+    "--analysis-versions-file",
+    type=click.Path(exists=True),
     help=(
-        "Specify an Expression Atlas identifier that will be used for this"
-        " experiment. If not set, a placeholder value E-EXP-1234 will be used"
-        " and can be edited in the bundle later."
+        "A four-column tab-delimited file with analys, analysis, version and"
+        " citation"
     ),
 )
 @click.option(
@@ -30,7 +29,29 @@ from atlas_anndata import make_starting_config_from_anndata
     is_flag=True,
     help="Is this a droplet experiment?",
 )
+@click.option(
+    "--gene-name-field",
+    default="gene_name",
+    help="Field in .var where gene name (symbol) is stored.",
+)
+@click.option(
+    "--default-clustering",
+    help=(
+        "Of the unsupervised clusterings, which clustering should be set as"
+        " the default? If not set, the middle (or first middle) clustering"
+        " will be selected, or if --atlas-style is set, this will be the"
+        " clustering corresponding to a resolution of 1."
+    ),
+)
 def write_config(*args, **kwargs):
+    """Make a starting config describing an anndata file, for use in making
+    analysis bundles for input into Single Cell Expression Atlas (SCXA)
+
+    \b
+    anndata_file   - A file of the annData hdf5 specification, with all
+                     necessaryinformation for SCXA.
+    anndata_config - File path to write YAML config.
+    """
     make_starting_config_from_anndata(*args, **kwargs)
 
 
