@@ -112,6 +112,7 @@ def check_slot(adata, slot_type, slot_name):
 
     return check_result
 
+
 def validate_anndata_with_config(anndata_config, anndata_file):
 
     """Validate an anndata against a config
