@@ -66,6 +66,13 @@ cell_meta:
       alorithm: louvain
       resolution: 1.0
 
+# Gene metadata field used to describe gene-wise info. Currently limited to
+# describing which field is the gene name/symbol, but may be expanded in
+# future.
+
+gene_meta:
+  name_field: gene_name
+
 # Dimension reductions, slots correspond to keys in .obsm
 
 dimension_reductions:
