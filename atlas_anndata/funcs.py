@@ -173,6 +173,18 @@ def validate_anndata_with_config(anndata_config, anndata_file):
     if "name_field" in config["gene_meta"]:
         check_slot(adata, "gene_meta", config["gene_meta"]["name_field"])
 
+    # Check that some necessary version info is present
+
+    analysis_names = [x["analysis"] for x in config["analysis_versions"]]
+    required_analyses = ["reference", "alignment"]
+    if not set(required_analyses).issubset(analysis_names):
+        errmsg = (
+            f"At least {required_analyses} must be described in"
+            " analysis_versions in config file. You only have"
+            f" {analysis_names}."
+        )
+        raise Exception(errmsg)
+
     print(
         f"annData file successfully validated against config {anndata_config}"
     )
@@ -361,7 +373,7 @@ def make_starting_config_from_anndata(
     config = {
         "exp-name": exp_name,
         "droplet": droplet,
-        "matrices": {"load_to_scxa_db": None, "entries": []},
+        "matrices": {"load_to_scxa_db": MISSING_STRING, "entries": []},
         "gene_meta": {"name_field": gene_name_field},
         "cell_meta": {"entries": []},
         "dimension_reductions": {"entries": []},

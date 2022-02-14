@@ -35,9 +35,10 @@ jobs:
           make_starting_config_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml --atlas-style --exp-name E-MTAB=1234
       - name: Fill blanks in starting config
         run: |
-          sed -i '0,/FILL ME with a string/{s/FILL ME with a string/raw/}' test_config_from_anndata.yaml
-          sed -i '0,/FILL ME with a string/{s/FILL ME with a string/scaled/}' test_config_from_anndata.yaml
           sed -i 's/FILL ME with a string/foo/g'  test_config_from_anndata.yaml 
+          sed -i '0,/name: foo/{s/name: foo/name: raw/}' test_config_from_anndata.yaml
+          sed -i '0,/name: foo/{s/name: foo/name: scaled/}' test_config_from_anndata.yaml
+          sed -i '0,/ load_to_scxa_db: foo/{s/ load_to_scxa_db: foo/ load_to_scxa_db: normalised/}' test_config_from_anndata.yaml
       - name: Test CLI, Validate annData against schema and generated config
         run: |
           validate_anndata_with_config test_config_from_anndata.yaml atlas_anndata/data/E-MTAB-6077.project.h5ad
