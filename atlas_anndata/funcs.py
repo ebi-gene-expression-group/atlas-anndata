@@ -98,10 +98,10 @@ def check_slot(adata, slot_type, slot_name):
         check_result = slot_name in adata.obsm
 
     elif slot_type == "cell_meta":
-        check_result = slot_name in adata.obs.columns
+        check_result = slot_name in adata.obs.columns or slot_name == "index"
 
     elif slot_type == "gene_meta":
-        check_result = slot_name in adata.var.columns
+        check_result = slot_name in adata.var.columns or slot_name == "index"
 
     else:
         errmsg = f"{slot_type} slot type not recognised"
