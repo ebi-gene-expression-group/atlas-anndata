@@ -32,7 +32,7 @@ jobs:
           python atlas_anndata/funcs.py
       - name: Test CLI, config creation from annData
         run: |
-          make_starting_config_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml --atlas-style --exp-name E-MTAB=1234
+          make_starting_config_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml --atlas-style
       - name: Fill blanks in starting config
         run: |
           sed -i 's/FILL ME with a string/foo/g'  test_config_from_anndata.yaml 
@@ -45,6 +45,6 @@ jobs:
       - name: Test CLI, Validate annData against schema and example config
         run: |
           validate_anndata_with_config atlas_anndata/example_config.yaml atlas_anndata/data/E-MTAB-6077.project.h5ad
-      - name: Test CLI, Write bundle from config and adata
+      - name: Test CLI, Write bundle from config and adata (for pre-MAGE-TAB)
         run: |
-          make_bundle_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml test_bundle
+          make_bundle_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml test_bundle --write-premagetab
