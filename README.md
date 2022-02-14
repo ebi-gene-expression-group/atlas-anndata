@@ -70,7 +70,7 @@ marker_stats	tpm_filtered_stats.csv	tpm_filtered
 cluster_memberships	clusters_for_bundle.txt
 ```
 
-## Producing an analysis bundle from arbitrary annData files
+## Protocol: producing an analysis bundle from arbitrary annData files
 
 ### 0. Install this package
 
@@ -86,19 +86,71 @@ pip install .
 
 To produce a valid bundle from an anndata file, we need to describe that file, outlining which of the cell/ gene metadata columns, matrices,dimension reductions etc should be included. This is done via a YAML-format config file (see [example]{example_config.yaml}).
 
-A starting configuration can be produced directly from the annData file:
+A starting configuration can be produced directly from the annData file using the `make_starting_config_from_anndata`. Usage for this command is:
 
 ```
-make_starting_config_from_anndata project.h5ad test_config_from_anndata.yaml --exp-name E-MTAB-1234 --droplet
+Usage: make_starting_config_from_anndata [OPTIONS] ANNDATA_FILE ANNDATA_CONFIG
+
+  Build a bundle directory compatible with Single Cell Expression Atlas (SCXA)
+  build proceseses
+
+  anndata_file   - A file of the annData hdf5 specification, with all
+                   necessaryinformation for SCXA.
+  anndata_config - File path to write YAML config.
+
+Options:
+  --atlas-style                  Assume the tight conventions from SCXA, e.g.
+                                 on .obsm slot naming?
+  --software-versions-file PATH  A four-column tab-delimited file with analys,
+                                 software, version and citation
+  --droplet                      Is this a droplet experiment?
+  --gene-name-field TEXT         Field in .var where gene name (symbol) is
+                                 stored.
+  --default-clustering TEXT      Of the unsupervised clusterings, which
+                                 clustering should be set as the default? If
+                                 not set, the middle (or first middle)
+                                 clustering will be selected, or if --atlas-
+                                 style is set, this will be the clustering
+                                 corresponding to a resolution of 1.
+  --help                         Show this message and exit.
+```
+
+(Note that the `atlas-style` flag is probably only useful for annData files produced by the Experession Atlas team, and relies on a number of assumptions about the content of the file in order to infer some additional information.)
+
+For example to make a starting bundle for an annData file from a droplet experiment we might do:
+
+```
+make_starting_config_from_anndata project.h5ad test_config_from_anndata.yaml --droplet
 ``` 
 
-This will produce a config file at the specified locations. This script will also request other information not present in the annData object, such as an experiment identifier to use. There is an '---atlas-style' flag that will cause some additional information to be completed automatically based on conventions we use to fill annData objects, but this is unlikely to be useful to external users.
+#### Complete the information in the YAML config file
 
-### 2. Check and modify the config file
+The resulting YAML will be populated decriptions of the content in the various parts of a YAML file. This will largely be the result of guesswork, and you should check all content and update accordingly. Specifically:
 
-The config __should be modified__ according to your knowledge of the experiment, for example to highlight what treatments have been applied to the matrix in .X. Any line with 'FILL ME' should be given appropriate values.
- 
-### 3. Validate config YAML
+ - Under analyses please desribe the analysis that was done. At a minimum you should describe the reference used (see [the example](atlas_anndata/example_config.yaml)) and the mapping tool used.
+ - Under `matrices` check that you want all these matrices to be considered. You can remove any matrix that's not useful, and you should check the processing flags / matrices for each one. 
+ - Under load_to_scxa_db please state the matrix that should be used by Atlas in expression-based displays. This should be filtered and normalised but not scaled or transformed. If no matrix in the object matches these criteria please remove this part of the config and Atlas will not show displays for this experiment based on expression values.
+ - Under `gene_meta` state the field in .var which can be used as gene name/symbol. In Ensembl data this is conventionally 'gene_name'.
+ - Check the fields described in `cell_meta`, especially their kind ('curation', 'clustering', 'analysis'). Curated fields are those present before analysis, biological and technical info for cells and samples. Clustering is used to indicate the results of unsupervised cell clustering stored in .obs. Analysis is everthing else, comprising all other fields added to .obs during analysis.
+ - Check the dimension reductions described, again paying attention to 'kind'. 
+
+For all sections, check [the example](atlas_anndata/example_config.yaml) for an idea of how things should look.For example under `matrices` there will be an entry pertaining the content of .X. You shold add a name (e.g 'scaled'), and c 
+
+```
+  - cell_filtered: true
+    gene_filtered: true
+    log_transformed: true
+    measure: counts
+    name: FILL ME with a string
+    normalised: true
+    parameters: {}
+    scaled: true
+    slot: X
+```
+
+You would fill the 'name' field here with something more descriptive for the matrix.
+
+### 2. Validate config YAML
 
 Having edited the config YAML, you should validate it against a schema we provide and the annData file itself. We can use this mechanism to ensure that inputs match the expectations of Single Cell Expression Atlas. 
 
@@ -106,17 +158,15 @@ Having edited the config YAML, you should validate it against a schema we provid
 validate_anndata_with_config test_config_from_anndata.yaml project.h5ad
 ```
 
-Subsequent steps will also run this, but running it yourself will flag any issues early. If the validation flags any issues, resolve them.
+There are no additional arguments for this step.
 
-### 4. Run bundle creation based on the supplied configuration
+Subsequent steps will also run this automatically before proceeding, but running it yourself will flag any issues early. If the validation flags any issues, resolve them.
 
-Once the configuration file is complete, with all necesary info, the bundle generation itself is quite simple: 
+### 3. Run bundle creation based on the supplied configuration
 
-```
-make_bundle_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml test_bundle
-```
+Once the configuration file is complete, with all necesary info, the bundle generation itself can be done.
 
-Detailed help for this command is:
+Detailed help for the relevant command is:
 
 ```
 Usage: make_bundle_from_anndata [OPTIONS] ANNDATA_FILE ANNDATA_CONFIG
@@ -135,113 +185,38 @@ Usage: make_bundle_from_anndata [OPTIONS] ANNDATA_FILE ANNDATA_CONFIG
 Options:
   --max-rank-for-stats INTEGER  For how many top marker genes should stats
                                 (mean, median expression) be output?
+  --write-premagetab            Should we write pre-magetab files for curation
+                                by SCXA team?
+  --magetab-dir PATH
+  --exp-name TEXT               Specify an Expression Atlas identifier that
+                                will be used for this experiment. 
   --help                        Show this message and exit.
 ```
 
-## Command help
+### 3a. First run to derive starting metadata
 
-Here is the description of options for the main bundle generation script:
+The initial step for getting data represented in an annData object into SCXA is generation of full MAGE-TAB format metadata. We can generate starting content for the curators like:
 
 ```
-> bundle_from_anndata.py --help
-Usage: bundle_from_anndata.py [OPTIONS] ANNDATA_FILE BUNDLE_DIR
-
-  Build a bundle directory compatible with Single Cell Expression Atlas (SCXA)
-  build proceseses
-
-  anndata_file - A file of the annData hdf5 specification, with all necessary information for SCXA.
-  bundle_dir   - A directory in which to create the bundle.
-
-Options:
-  --exp-name TEXT                 Specify an Expression Atlas identifier that
-                                  will be used for this experiment. If not
-                                  set, a placeholder value E-EXP-1234 will be
-                                  used and can be edited in the bundle later.
-  --droplet                       Is this a droplet experiment?
-  --exp-desc PATH                 Provide an experiment description file. If
-                                  unspecified, the script will check for a
-                                  slot called "experiment" in the .uns slot of
-                                  the annData object, and use that to create a
-                                  starting version of an IDF file.
-  --write-cellmeta / --no-write-cellmeta
-                                  Write a table of cell-wise metadata from
-                                  .obs.
-  --write-genemeta / --no-write-genemeta
-                                  Write a table of gene-wise metadata from
-                                  .var.
-  --nonmeta-obs-patterns TEXT[,TEXT...]
-                                  A comma-separated list of patterns to be
-                                  used to exlude columns when writing cell
-                                  metadata from .obs. Defaults to
-                                  louvain,n_genes,n_counts,pct_,total_counts
-  --nonmeta-var-patterns TEXT[,TEXT...]
-                                  A comma-separated list of patterns to be
-                                  used to exlude columns when writing gene
-                                  metadata from .obs. Defaults to mean,counts,
-                                  n_cells,highly_variable,dispersion
-  --raw-matrix-slot TEXT          Slot where the most raw and least filtered
-                                  expression data are stored. This is usually
-                                  in raw.X, other values will be interpreted
-                                  as layers (in .raw if prefixed with "raw".
-                                  annData requires that .raw.X and .X match in
-                                  .obs, so even when stored in .raw this will
-                                  have to be the matrix afer cell filtering,
-                                  but should ideally not be gene-filtered.
-  --filtered-matrix-slot TEXT     Layer name or "X", specifying storage
-                                  location for gene-filtered matrix before
-                                  transformations such as log transform,
-                                  scaling etc.
-  --normalised-matrix-slot TEXT   Layer name or "X", specifiying storage
-                                  location for normalised matrix.
-  --final-matrix-slot TEXT        Layer name or "X", specifiying storage
-                                  location for the final matrix after
-                                  processing. Will usually be in .X.
-  --write-obsms / --no-write-obsms
-                                  Write dimension reductions from .obsm to the
-                                  bundle?
-  --obsms TEXT[,TEXT...]          A comma-separated list of obsm slots to
-                                  write. Default is to write them all.
-  --write-clusters / --no--write--clusters
-                                  Write cluster data to the bundle?
-  --clusters TEXT[,TEXT...]       A comma-separated list of .obs slots
-                                  corresponding to unsupervised clusterings.
-  --clusters-field-pattern TEXT   If --clusters not supplied, a string to be
-                                  used to select columns from .obs
-                                  representing unsupervised clusterings.
-  --default-clustering TEXT       Where --write-clusters is set, which
-                                  clustering should be set as the default? If
-                                  not set, the middle (or first middle)
-                                  clustering will be selected, or if --atlas-
-                                  style is set, this will be the clustering
-                                  corresponding to a resolution of 1.
-  --write-markers / --no--write--markers
-                                  Write marker data to the bundle?
-  --marker-clusterings TEXT[,TEXT...]
-                                  A comma-separated list of clusterings for
-                                  which to write markers. marker results are
-                                  expected to be stored in .uns under keys
-                                  like "markers_{clustering}. Defaults to all
-                                  selected clusterings.
-  --metadata-marker-fields TEXT[,TEXT...]
-                                  A comma-separated list of .obs slots
-                                  corresponding to metadata variables for
-                                  which markers have been derived.
-  --write-marker-stats / --no--write--marker-stats
-                                  Write marker summary statistics (mean,
-                                  median expression) to the bundle?
-  --marker-stats-layers TEXT[,TEXT...]
-                                  A comma-separated list of layers from which
-                                  expression values should be summarised in
-                                  marker statistics.
-  --max-rank-for-stats INTEGER    For how many top marker genes should stats
-                                  (mean, median expression) be output?
-  --atlas-style TEXT              Assume the tight conventions from SCXA, e.g.
-                                  on .obsm slot naming
-  --gene-name-field TEXT          Field in .var where gene name (symbol) is
-                                  stored.
-  --write-anndata / --no--write--anndata
-                                  Write the annData file itself to the bundle?
-  --help                          Show this message and exit.
+make_bundle_from_anndata project.h5ad test_config_from_anndata.yaml test_bundle --write-premagetab
 ```
 
-## Example commands  
+This will produce a subfolder in the output bundle called 'mage-tab' with a starting samples table, and in the case of droplet experiments a starting .cells.txt with the cell-wise information, which is distinct from sample-wise information for experiments of that type.
+
+Pass these starting files to SCXA curators with all the experiment-level data you have. They will curate the metadata, in the process generating:
+
+ - Accession the experiment (give it an identifier)
+ - Create an SDRF (and cells.txt for droplet experiments)
+ - Create an IDF (experiment description)
+
+### 3b. Second run, with completed MAGE-TAB
+
+When the curators are done, you can run the command again to produce the final bundle:
+
+```
+make_bundle_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml test_bundle --magetab-dir <path to mage-tab dir> --exp-name <new accession>
+```
+
+This bundle directory should now be ready to ingest into Single Cell Expression Atlas.
+
+
