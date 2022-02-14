@@ -494,7 +494,7 @@ def make_starting_config_from_anndata(
                 {
                     "analysis": analysis,
                     "kind": "file" if analysis == "reference" else "software",
-                    "software": MISSING_STRING,
+                    "asset": MISSING_STRING,
                     "version": MISSING_STRING,
                     "citation": MISSING_STRING,
                 }
