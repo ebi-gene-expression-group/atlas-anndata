@@ -24,12 +24,6 @@ jobs:
         with:
           path: "bin"
           args: '--filename="*" -vv'
-      - name: Install Scanpy
-        run: |
-          pip install scanpy
-      - name: Install scanpy-scripts without dependencies
-        run: |
-          pip install --no-deps scanpy-scripts
       - name: Install dependencies
         run: |
           pip install .
