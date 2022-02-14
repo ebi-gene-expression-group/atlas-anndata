@@ -304,7 +304,7 @@ def read_analysis_versions_file(analysis_versions_file, atlas_style=False):
     # to the software field), but we know what the content of our versions
     # file is, so we can infer it.
 
-    analysis_versions.rename(columns={"software": "asset"}, inplace = True)
+    analysis_versions.rename(columns={"software": "asset"}, inplace=True)
 
     required_versions_columns = [
         "analysis",
@@ -324,9 +324,7 @@ def read_analysis_versions_file(analysis_versions_file, atlas_style=False):
         raise Exception(errmsg)
     else:
         if "kind" not in analysis_versions.columns:
-            required_versions_columns.append(
-                "kind"
-            )
+            required_versions_columns.append("kind")
             analysis_versions["kind"] = [
                 "file" if x.lower() == "reference" else "software"
                 for x in analysis_versions["analysis"]
