@@ -423,6 +423,8 @@ def make_starting_config_from_anndata(
 
     # Check that we actually have some obs
 
+    breakpoint()
+
     if len(adata.obs.columns) == 0:
         errmsg = (
             "Object in {anndata_file} has no obs (cell metadata at all) and as"
