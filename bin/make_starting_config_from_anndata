@@ -30,9 +30,19 @@ from atlas_anndata import make_starting_config_from_anndata
     help="Is this a droplet experiment?",
 )
 @click.option(
+    "--gene-id-field",
+    default="gene_name",
+    help="Field in .var where gene ID is stored.",
+)
+@click.option(
     "--gene-name-field",
     default="gene_name",
     help="Field in .var where gene name (symbol) is stored.",
+)
+@click.option(
+    "--sample-field",
+    default="sample",
+    help="Field in .obs which separates cells from different libraries.",
 )
 @click.option(
     "--default-clustering",
