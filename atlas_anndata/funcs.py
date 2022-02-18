@@ -16,6 +16,7 @@ import os
 import gzip
 import math
 import csv
+from .anndata_ops import derive_metadata
 
 schema_file = pkg_resources.resource_filename(
     "atlas_anndata", "config_schema.yaml"
@@ -170,8 +171,11 @@ def validate_anndata_with_config(anndata_config, anndata_file):
     if "load_to_scxa_db" in config["matrices"]:
         check_slot(adata, "matrices", config["matrices"]["load_to_scxa_db"])
 
-    if "name_field" in config["gene_meta"]:
-        check_slot(adata, "gene_meta", config["gene_meta"]["name_field"])
+    check_slot(adata, "gene_meta", config["gene_meta"]["id_field"])
+    check_slot(adata, "gene_meta", config["gene_meta"]["name_field"])
+
+    if "sample_field" in config["cell_meta"]:
+        check_slot(adata, "cell_meta", config["cell_meta"]["sample_field"])
 
     # Check that some necessary version info is present
 
@@ -227,20 +231,25 @@ def slot_kind_from_name(slot_type, slot_name):
     search_map = {}
 
     if slot_type == "dimension_reductions":
-        kind = f"{kind}: 'pca', 'tsne' or 'umap'"
-        search_map = {".*pca": "pca", ".*umap": "umap", ".*tsne": "tsne"}
+        kind = f"{kind}: 'pca', 'tsne', 'umap', 'scanvi'"
+        search_map = {
+            ".*pca": "pca",
+            ".*umap": "umap",
+            ".*tsne": "tsne",
+            ".*scanvi.*": "scanvi",
+        }
 
     elif slot_type == "cell_meta":
         kind = "curation"
         search_map = {
-            "leiden": "clustering",
+            ".*leiden.*": "clustering",
             "cluster": "clustering",
             "log1p": "analysis",
             "^n_": "analysis",
             "total_": "analysis",
             "pct_": "analysis",
             "mito": "analysis",
-            "louvain": "clustering",
+            ".*louvain.*": "clustering",
         }
     elif slot_type == "gene_meta":
         kind = "curation"
@@ -286,7 +295,7 @@ def extract_parameterisation(slot_type, slot_name, atlas_style=False):
                 parameters[m.group(2)] = string_to_numeric(m.group(3))
 
         elif slot_type == "cell_meta":
-            m = re.search(r"(louvain|leiden)_(.*)_(.*)", slot_name)
+            m = re.search(r".*(louvain|leiden)_(.*)_(.*)", slot_name)
             if m:
                 parameters[m.group(2)] = string_to_numeric(m.group(3))
 
@@ -357,7 +366,9 @@ def make_starting_config_from_anndata(
     atlas_style=False,
     exp_name=None,
     droplet=False,
+    gene_id_field="gene_id",
     gene_name_field="gene_name",
+    sample_field="sample",
     default_clustering=None,
     analysis_versions_file=None,
 ):
@@ -375,7 +386,14 @@ def make_starting_config_from_anndata(
     config = {
         "droplet": droplet,
         "matrices": {"load_to_scxa_db": MISSING_STRING, "entries": []},
-        "gene_meta": {"name_field": gene_name_field},
+        "gene_meta": {
+            "name_field": gene_name_field
+            if gene_name_field in adata.var.columns
+            else MISSING_STRING,
+            "id_field": gene_id_field
+            if gene_id_field in adata.var.columns
+            else MISSING_STRING,
+        },
         "cell_meta": {"entries": []},
         "dimension_reductions": {"entries": []},
         "analysis_versions": [],
@@ -423,8 +441,6 @@ def make_starting_config_from_anndata(
 
     # Check that we actually have some obs
 
-    breakpoint()
-
     if len(adata.obs.columns) == 0:
         errmsg = (
             "Object in {anndata_file} has no obs (cell metadata at all) and as"
@@ -456,6 +472,17 @@ def make_starting_config_from_anndata(
             obs_entry["markers"] = False
 
         config["cell_meta"]["entries"].append(obs_entry)
+
+    # For Atlas objects we'll use the predictable cell ID structure to derive
+    # samples and barcodes. For other sources we probably need an explicit
+    # sample column
+
+    if droplet and not atlas_style:
+        config["cell_meta"]["sample_field"] = (
+            sample_field
+            if sample_field in adata.obs.columns
+            else MISSING_STRING
+        )
 
     # Find the groups in obs that correspond to clusterings
     config_obs = [x["slot"] for x in config["cell_meta"]["entries"]]
@@ -535,6 +562,7 @@ def make_bundle_from_anndata(
     max_rank_for_stats=5,
     exp_name="NONAME",
     write_premagetab=False,
+    write_matrices=True,
     **kwargs,
 ):
     # Make sure the config matches the schema and anndata
@@ -552,27 +580,6 @@ def make_bundle_from_anndata(
 
     manifest = read_file_manifest(bundle_dir)
 
-    # Write matrices
-
-    print("Writing matrices")
-    write_matrices_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_dir,
-        adata=adata,
-        config=config,
-    )
-
-    # Write clusters (analytically derived cell groupings). For historical
-    # reasons this is written differently to e.g. curated metadata
-
-    print("Writing obs (unsupervised clusterings)")
-    write_clusters_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_dir,
-        adata=adata,
-        config=config,
-    )
-
     # Write cell metadata (curated cell info)
 
     print("Writing obs (curated metadata)")
@@ -584,6 +591,28 @@ def make_bundle_from_anndata(
         kind="curation",
         exp_name=exp_name,
         write_premagetab=write_premagetab,
+    )
+
+    # Write matrices
+
+    if write_matrices:
+        print("Writing matrices")
+        write_matrices_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_dir,
+            adata=adata,
+            config=config,
+        )
+
+    # Write clusters (analytically derived cell groupings). For historical
+    # reasons this is written differently to e.g. curated metadata
+
+    print("Writing obs (unsupervised clusterings)")
+    write_clusters_from_adata(
+        manifest=manifest,
+        bundle_dir=bundle_dir,
+        adata=adata,
+        config=config,
     )
 
     # Write any associated markers
@@ -766,26 +795,18 @@ def write_cell_metadata(
     exp_name="NONAME",
 ):
 
-    # By default print all obs columns, but that's probably not we want in most
-    # cases because of mixture of data types there (from curation, QC,
-    # clustering etc)
-
-    if kind is None:
-        obs_columns = list(adata.obs.columns)
-    else:
-        obs_columns = [
-            slot_def["slot"]
-            for slot_def in config["cell_meta"]["entries"]
-            if slot_def["kind"] == kind
-        ]
-
     print("Writing cell metdata to be used in curation")
     cellmeta_filename = f"{exp_name}.cell_metadata.tsv"
     presdrf_filename = f"mage-tab/{exp_name}.presdrf.txt"
     precells_filename = f"mage-tab/{exp_name}.precells.txt"
     pathlib.Path(f"{bundle_dir}/mage-tab").mkdir(parents=True, exist_ok=True)
 
-    cell_metadata = adata.obs[obs_columns].copy()
+    cell_metadata, run_metadata, cell_specific_metadata = derive_metadata(
+        adata, config=config, kind=None
+    )
+
+    # Output the total cell metadata anyway
+
     cell_metadata.to_csv(
         f"{bundle_dir}/{cellmeta_filename}",
         sep="\t",
@@ -798,51 +819,13 @@ def write_cell_metadata(
     if kind == "curation" and write_premagetab:
         if config["droplet"]:
 
-            # Split cell IDs to runs and barcodes
-            try:
-                runs, barcodes = zip(*(s.split("-") for s in adata.obs_names))
-            except ValueError as e:
-                errmsg = (
-                    f"Error deriving run and barcode lists: {e}. Cell names"
-                    " likely don't match expected <run or sample>_<barcode>"
-                    " naming format for droplet experiments. First cell name"
-                    f" is: {adata.obs_names[0]}"
-                )
-                raise Exception(errmsg)
-
-            cell_metadata["cell barcode"] = barcodes
-
-            # Split cell metadata by run ID and create run-wise metadata with
-            # any invariant value across all cells of a run
-
-            unique_runs = list(set(runs))
-            submetas = [
-                cell_metadata[[y == x for y in runs]] for x in unique_runs
-            ]
-            run_meta = pd.concat(
-                [
-                    df[[x for x in df.columns if len(set(df[x])) == 1]].head(1)
-                    for df in submetas
-                ],
-                join="inner",
-            )
-            run_meta["run"] = unique_runs
-            run_meta.set_index("run", inplace=True)
-
-            run_meta.to_csv(
+            run_metadata.to_csv(
                 f"{bundle_dir}/{presdrf_filename}",
                 sep="\t",
                 header=True,
                 index=True,
                 index_label="id",
             )
-            cell_specific_metadata = cell_metadata[
-                [
-                    x
-                    for x in cell_metadata.columns
-                    if x not in obs_columns + list(run_meta.columns)
-                ]
-            ]
 
             if len(cell_specific_metadata.columns) > 0:
                 cell_specific_metadata.to_csv(
@@ -859,6 +842,9 @@ def write_cell_metadata(
                 )
 
         else:
+
+            # For plate-based data the cell metadata IS the sample metadata
+
             cell_metadata.to_csv(
                 f"{bundle_dir}/{presdrf_filename}",
                 sep="\t",
