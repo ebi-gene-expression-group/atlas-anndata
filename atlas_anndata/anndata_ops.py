@@ -15,10 +15,10 @@ def derive_metadata(adata, config, kind=None):
 
     """Extract cell metadata, select fields and separate out run-wise info."""
 
-    cell_metadata = adata.obs[obs_columns].copy()
     sample_metadata = None
     cell_specific_metadata = None
 
+    cell_metadata = adata.obs.copy()
     sample_col = sample_col = config["cell_meta"].get("sample_col", None)
 
     # By default print all obs columns, but that's probably not we want in most
@@ -52,7 +52,6 @@ def derive_metadata(adata, config, kind=None):
             )
 
             runs = adata.obs[sample_col]
-            cell_ids = adata.obs_names
 
             barcodes = [
                 re.sub(
@@ -80,26 +79,26 @@ def derive_metadata(adata, config, kind=None):
         print("... extracting metadata consistent within samples")
         unique_runs = list(set(runs))
         submetas = [cell_metadata[[y == x for y in runs]] for x in unique_runs]
-        run_metadata = pd.concat(
+        sample_metadata = pd.concat(
             [
                 df[[x for x in df.columns if len(df[x].unique()) == 1]].head(1)
                 for df in submetas
             ],
             join="inner",
         )
-        run_metadata["run"] = unique_runs
-        run_metadata.set_index("run", inplace=True)
+        sample_metadata["run"] = unique_runs
+        sample_metadata.set_index("run", inplace=True)
 
         print("... assigning other metadata as cell_specific")
         cell_specific_metadata = cell_metadata[
             [
                 x
                 for x in cell_metadata.columns
-                if x not in list(run_metadata.columns)
+                if x not in list(sample_metadata.columns)
             ]
         ]
 
-    return cell_metadata, run_metadata, cell_specific_metadata
+    return cell_metadata, sample_metadata, cell_specific_metadata
 
 
 def parse_cell_ids(adata, sample_name_col=None):
@@ -111,35 +110,35 @@ def parse_cell_ids(adata, sample_name_col=None):
 
     id_patterns = {
         "atlas_standard": {
-            "pattern": re.compile("(^\S+)-([ATGC]{8,})$"),
+            "pattern": re.compile(r"(^\S+)-([ATGC]{8,})$"),
             "rearr_func": lambda string, regex: list(
                 re.findall(regex, string)[0]
             ),
         },
         "just_barcode": {
-            "pattern": re.compile("^([ATGC]+)$"),
+            "pattern": re.compile(r"^([ATGC]+)$"),
             "rearr_func": lambda string, regex: re.findall(regex, string) * 2,
         },
         "barcode_at_end_with_sep": {
-            "pattern": re.compile("(^\S+)[-_ =/]([ATGC]{8,})$"),
+            "pattern": re.compile(r"(^\S+)[-_ =/]([ATGC]{8,})$"),
             "rearr_func": lambda string, regex: list(
                 re.findall(regex, string)[0]
             ),
         },
         "barcode_at_start_with_sep": {
-            "pattern": re.compile("^([ATGC]{8,})[-_ =/](\S+)$"),
+            "pattern": re.compile(r"^([ATGC]{8,})[-_ =/](\S+)$"),
             "rearr_func": lambda string, regex: list(
                 re.findall(regex, string)[0]
             )[::-1],
         },
         "barcode_at_end_with_sep_and_suffix": {
-            "pattern": re.compile("^(\S+)[-_ =/]([ATGC]{8,}\S+)$"),
+            "pattern": re.compile(r"^(\S+)[-_ =/]([ATGC]{8,}\S+)$"),
             "rearr_func": lambda string, regex: list(
                 re.findall(regex, string)[0]
             ),
         },
         "barcode_at_end_no_sep_with_suffix": {
-            "pattern": re.compile("^(\S*[^ATGC])([ATGC]{8,}\S+)$"),
+            "pattern": re.compile(r"^(\S*[^ATGC])([ATGC]{8,}\S+)$"),
             "rearr_func": lambda string, regex: list(
                 re.findall(regex, string)[0]
             ),
