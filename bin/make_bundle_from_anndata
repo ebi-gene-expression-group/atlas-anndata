@@ -18,10 +18,14 @@ from scanpy_scripts.click_utils import CommaSeparatedText
     ),
 )
 @click.option(
-    "--no-write-matrices", "write_matrices",
+    "--no-write-matrices",
+    "write_matrices",
     default=True,
     is_flag=True,
-    help="Use to disable writing of matrices to bundle, for example in early metadata evaluation",    
+    help=(
+        "Use to disable writing of matrices to bundle, for example in early"
+        " metadata evaluation"
+    ),
 )
 @click.option(
     "--write-premagetab",
