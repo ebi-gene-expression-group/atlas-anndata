@@ -14,6 +14,3 @@ __all__ = [
     "make_bundle_from_anndata",
 ]
 
-MISSING = "FILL ME"
-MISSING_STRING = f"{MISSING} with a string"
-MISSING_BOOLEAN = f"{MISSING} with a boolean"
