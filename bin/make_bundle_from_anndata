@@ -18,6 +18,18 @@ from scanpy_scripts.click_utils import CommaSeparatedText
     ),
 )
 @click.option(
+    "--matrix-for-markers",
+    required=True,
+    default="X",
+    help=(
+        "Where cell groups in the configuration file have been flagged with"
+        " markers, which matrix should be used? Can be X, or an entry in"
+        " .layers(). The matrix must be appropriate for Scanpy's"
+        " tl.rank_genes_groups() method, usually meaning filtered, normalised"
+        " and log transformed, but without additional scaling."
+    ),
+)
+@click.option(
     "--no-write-matrices",
     "write_matrices",
     default=True,
