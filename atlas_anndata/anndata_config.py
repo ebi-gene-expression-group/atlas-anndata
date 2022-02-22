@@ -1,5 +1,11 @@
-from . import MISSING_STRING
-from .funcs import (
+import pkg_resources
+import yaml
+import jsonschema
+from jsonschema import validate
+from .strings import MISSING, MISSING_STRING
+import sys
+
+from .util import (
     slot_kind_from_name,
     extract_parameterisation,
     obs_markers,
@@ -7,6 +13,13 @@ from .funcs import (
     read_analysis_versions_file,
 )
 import math
+
+schema_file = pkg_resources.resource_filename(
+    "atlas_anndata", "config_schema.yaml"
+)
+example_config_file = pkg_resources.resource_filename(
+    "atlas_anndata", "example_config.yaml"
+)
 
 
 def describe_matrices(adata, atlas_style=False, droplet=False):
@@ -64,7 +77,7 @@ def describe_cellmeta(
     sample_field="sample",
 ):
 
-    conf = ({"entries": []},)
+    conf = {"entries": []}
 
     # Check that we actually have some obs
 
@@ -140,7 +153,7 @@ def describe_cellmeta(
 
 def describe_dimreds(adata, atlas_style=False, droplet=False):
 
-    conf = {}
+    conf = {"entries": []}
 
     # Describe dimension reductions stored in .obsm
 
@@ -204,3 +217,45 @@ def describe_analysis(
                     "citation": MISSING_STRING,
                 }
             )
+
+    return conf
+
+def load_doc(filename):
+    with open(filename, "r") as stream:
+        try:
+            return yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+
+
+def validate_config(config):
+
+    """Validate a config against our schema
+
+
+    >>> egconfig = load_doc(example_config_file)
+    >>> validate_config(egconfig)
+    True
+    """
+
+    # Validate against the schema
+    schema = load_doc(schema_file)
+    
+    print(f"Validating config against {schema_file}")
+
+    try:
+        validate(instance=config, schema=schema)
+    except jsonschema.exceptions.ValidationError as err:
+        print(err, file=sys.stderr)
+        return False
+
+    # Also check that no blank values have been left in
+
+    if MISSING in str(config):
+        errmsg = (
+            f"Please complete all {MISSING} fields in config before trying to"
+            " make a bundle."
+        )
+        raise Exception(errmsg)
+
+    return True

@@ -1,7 +1,6 @@
 """
-Modifications to be made to annData objects themselves prior to Atlas
-ingestion. This might be changing the scale of expression values,
-re-calculating markers etc.
+Operations applied to annData objects, mostly extracting information in various
+ways.
 """
 
 import scanpy as sc
@@ -9,6 +8,20 @@ import re
 import numpy as np
 from collections import Counter
 import pandas as pd
+import scanpy_scripts as ss
+
+
+def overwrite_obs_with_magetab(adata, config, magetab_dir):
+    """Overwrite the cell metadata for the anndata object with curated MAGE-TAB"""
+
+    # Read the MAGE-TAB data, and probably remote [Comment] etc
+
+    # For droplet, merge in sample-wise metdata, ensure order is as current
+    # obs, and replace the obs dataframe.
+
+    # For non-droplet, just synch the data frame and replace the obs
+
+    return adata
 
 
 def derive_metadata(adata, config, kind=None):
@@ -19,7 +32,9 @@ def derive_metadata(adata, config, kind=None):
     cell_specific_metadata = None
 
     cell_metadata = adata.obs.copy()
-    sample_col = sample_col = config["cell_meta"].get("sample_col", None)
+    sample_field = sample_field = config["cell_meta"].get(
+        "sample_field", "sample"
+    )
 
     # By default print all obs columns, but that's probably not we want in most
     # cases because of mixture of data types there (from curation, QC,
@@ -44,23 +59,19 @@ def derive_metadata(adata, config, kind=None):
 
         print("Extracting metadata from annData object...")
 
-        if sample_col is not None:
+        if sample_field in adata.obs.columns:
 
             print(
                 "... deriving runs using supplied sample ID column"
-                f" {sample_col}"
+                f" {sample_field}"
             )
 
-            runs = adata.obs[sample_col]
+            runs = adata.obs[sample_field]
 
             barcodes = [
-                re.sub(
-                    f"(.*[^-_ =/])[-_ =/]?{sample_id}[-_ =/]?(.*)",
-                    "\\1",
-                    cell_id,
-                )
+                re.findall("[ATGC]{8,}", cell_id)[0]
                 for sample_id, cell_id in zip(
-                    adata.obs[sample_col], adata.obs_names
+                    adata.obs[sample_field], adata.obs_names
                 )
             ]
 
@@ -70,8 +81,14 @@ def derive_metadata(adata, config, kind=None):
 
         # If we had to derive run IDs from cell IDs, save them in the metadata
 
-        if sample_col is None:
-            adata.obs["sample"] = runs
+        if sample_field is None:
+            cell_metadata[sample_field] = runs
+
+        # Add derived barcodes as a new column
+        sample_colno = list(cell_metadata.columns).index(sample_field)
+        cell_metadata.insert(
+            (sample_colno + 1), column="barcode", value=barcodes
+        )
 
         # Split cell metadata by run ID and create run-wise metadata with
         # any invariant value across all cells of a run
@@ -88,10 +105,10 @@ def derive_metadata(adata, config, kind=None):
         )
         sample_metadata["run"] = unique_runs
         sample_metadata.set_index("run", inplace=True)
-
         print("... assigning other metadata as cell_specific")
         cell_specific_metadata = cell_metadata[
-            [
+            [sample_field]
+            + [
                 x
                 for x in cell_metadata.columns
                 if x not in list(sample_metadata.columns)
@@ -185,3 +202,53 @@ def parse_cell_ids(adata, sample_name_col=None):
         transposed = list(map(list, zip(*id_parts)))
 
         return transposed[0], transposed[1]
+
+
+def get_markers_table(adata, marker_grouping):
+
+    de_table = ss.lib._diffexp.extract_de_table(
+        adata.uns[f"markers_{marker_grouping}"]
+    )
+    de_table = de_table.loc[de_table.genes.astype(str) != "nan", :]
+
+    return de_table
+
+
+def calculate_markers(adata, config, matrix="X"):
+
+    marker_groupings = [
+        x["slot"] for x in config["cell_meta"]["entries"] if x["markers"]
+    ]
+
+    # If we're going to be doing any marker calculation, make sure the
+    # indicated matrix is suitable
+
+    if any([not obs_markers(adata, mg) for mg in marker_groupings]):
+        matrix_description = [
+            x for x in config["matrices"]["entries"] if x["slot"] == matrix
+        ]
+
+        if (
+            matrix_description["scaled"]
+            or (not matrix_description["normalised"])
+            or (not matrix_description["log_transformed"])
+        ):
+            errmsg = (
+                "Some markers need calculation, but the matrix indicated"
+                f" ({matrix}) is not annotated in the input configuration as"
+                " normalised, log transformed and unscaled as we would need"
+                " for that. Please update annotations and/or perform matrix"
+                " transformations as required."
+            )
+            raise Exception(errmsg)
+
+        for mg in marker_groupings:
+            if not obs_markers(adata, mg):
+                print(
+                    f"Marker statistics not currently available for {mg},"
+                    " recalculating with Scanpy..."
+                )
+                sc.tl.rank_genes_groups(adata, mg, method="wilcoxon")
+
+    else:
+        print()

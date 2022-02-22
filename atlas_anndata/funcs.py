@@ -1,6 +1,4 @@
 import pkg_resources
-import jsonschema
-from jsonschema import validate
 import yaml
 import sys
 import re
@@ -16,109 +14,31 @@ import os
 import gzip
 import math
 import csv
-from .anndata_ops import derive_metadata
+
 from .anndata_config import (
     describe_matrices,
     describe_cellmeta,
     describe_dimreds,
     describe_genemeta,
     describe_analysis,
+    load_doc,
+    validate_config,
 )
 
-schema_file = pkg_resources.resource_filename(
-    "atlas_anndata", "config_schema.yaml"
+from .util import (
+    check_slot,
+    clusterings_to_ks,
 )
-example_config_file = pkg_resources.resource_filename(
-    "atlas_anndata", "example_config.yaml"
+
+from .anndata_ops import (
+    derive_metadata,
+    get_markers_table,
+    overwrite_obs_with_magetab,
 )
+
 scxa_h5ad_test = pkg_resources.resource_filename(
     "atlas_anndata", "data/E-MTAB-6077.project.h5ad"
 )
-
-
-def load_doc(filename):
-    with open(filename, "r") as stream:
-        try:
-            return yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            print(exc)
-
-
-def validate_config(config):
-
-    """Validate a config against our schema
-
-
-    >>> egconfig = load_doc(example_config_file)
-    >>> validate_config(egconfig)
-    True
-    """
-
-    # Validate against the schema
-    schema = load_doc(schema_file)
-
-    try:
-        validate(instance=config, schema=schema)
-    except jsonschema.exceptions.ValidationError as err:
-        print(err, file=sys.stderr)
-        return False
-
-    # Also check that no blank values have been left in
-
-    from atlas_anndata import MISSING
-
-    if MISSING in str(config):
-        errmsg = (
-            f"Please complete all {MISSING} fields in config before trying to"
-            " make a bundle."
-        )
-        raise Exception(errmsg)
-
-    return True
-
-
-def check_slot(adata, slot_type, slot_name):
-
-    """Check for a slot in an anndata object
-
-    >>> adata = sc.read(scxa_h5ad_test)
-    >>> check = check_slot(adata, 'matrices', 'X')
-    Checking for matrices X
-    >>> check
-    True
-    """
-
-    print(f"Checking for {slot_type} {slot_name}")
-
-    check_result = False
-
-    errmsg = f"{slot_type} entry {slot_name} not present in anndata file"
-
-    if slot_type == "matrices":
-        if slot_name == "X":
-            check_result = hasattr(adata, "X")
-        elif slot_name == "raw.X":
-            check_result = hasattr(adata.raw, "X")
-        else:
-            check_result = slot_name in adata.layers
-
-    elif slot_type == "dimension_reductions":
-        check_result = slot_name in adata.obsm
-
-    elif slot_type == "cell_meta":
-        check_result = slot_name in adata.obs.columns or slot_name == "index"
-
-    elif slot_type == "gene_meta":
-        check_result = slot_name in adata.var.columns or slot_name == "index"
-
-    else:
-        errmsg = f"{slot_type} slot type not recognised"
-        check_result = False
-
-    if not check_result:
-        raise Exception(errmsg)
-
-    return check_result
 
 
 def validate_anndata_with_config(anndata_config, anndata_file):
@@ -150,7 +70,6 @@ def validate_anndata_with_config(anndata_config, anndata_file):
 
     # First validate the anndata descripton file against the YAML schema
 
-    print(f"Validating {anndata_config} against {schema_file}")
     config_status = validate_config(config)
 
     if config_status:
@@ -202,169 +121,6 @@ def validate_anndata_with_config(anndata_config, anndata_file):
         f"annData file successfully validated against config {anndata_config}"
     )
     return (config, adata)
-
-
-def obs_markers(adata, obs):
-
-    """
-    Check if a particular cell metadata field has an associated marker set
-
-    >>> adata = sc.read(scxa_h5ad_test)
-    >>> obs_markers(adata, 'louvain_resolution_1.0')
-    'markers_louvain_resolution_1.0'
-    """
-
-    markers_slot = f"markers_{obs}"
-
-    if markers_slot in adata.uns.keys():
-        return markers_slot
-    else:
-        return False
-
-
-def slot_kind_from_name(slot_type, slot_name):
-
-    """
-    Try to infer the kind/sub-type of a slot by comparing to known patterns
-
-
-    >>> slot_kind_from_name('dimension_reductions', 'X_tsne_blah')
-    'tsne'
-    """
-
-    from atlas_anndata import MISSING_STRING
-
-    kind = MISSING_STRING
-    search_map = {}
-
-    if slot_type == "dimension_reductions":
-        kind = f"{kind}: 'pca', 'tsne', 'umap', 'scanvi'"
-        search_map = {
-            ".*pca": "pca",
-            ".*umap": "umap",
-            ".*tsne": "tsne",
-            ".*scanvi.*": "scanvi",
-        }
-
-    elif slot_type == "cell_meta":
-        kind = "curation"
-        search_map = {
-            ".*leiden.*": "clustering",
-            "cluster": "clustering",
-            "log1p": "analysis",
-            "^n_": "analysis",
-            "total_": "analysis",
-            "pct_": "analysis",
-            "mito": "analysis",
-            ".*louvain.*": "clustering",
-        }
-    elif slot_type == "gene_meta":
-        kind = "curation"
-        search_map = {
-            "mean": "analysis",
-            "counts": "analysis",
-            "n_cells": "analysis",
-            "highly_variable": "analysis",
-            "dispersion": "analysis",
-        }
-
-    for kind_pattern in search_map.keys():
-        if re.match(r"{}".format(kind_pattern), slot_name.lower()):
-            kind = search_map[kind_pattern]
-            break
-
-    return kind
-
-
-def extract_parameterisation(slot_type, slot_name, atlas_style=False):
-
-    """
-    For annData objects from Single Cell Expression Atlas, infer paramerisation
-    from slot naming.
-
-    >>> extract_parameterisation(
-    ... 'cell_meta',
-    ... 'louvain_resolution_1.0',
-    ... atlas_style = True )
-    {'resolution': 1.0}
-    """
-
-    parameters = {}
-
-    if atlas_style:
-
-        if slot_type == "dimension_reductions":
-            m = re.search(
-                r"X_(umap|tsne|pca)_(.*)_(.*)",
-                slot_name.replace("umap_neighbors", "umap"),
-            )
-            if m:
-                parameters[m.group(2)] = string_to_numeric(m.group(3))
-
-        elif slot_type == "cell_meta":
-            m = re.search(r".*(louvain|leiden)_(.*)_(.*)", slot_name)
-            if m:
-                parameters[m.group(2)] = string_to_numeric(m.group(3))
-
-    return parameters
-
-
-def string_to_numeric(numberstring):
-
-    """
-    Convert strings to int or float
-
-    >>> string_to_numeric('1.0')
-    1.0
-    """
-
-    if numberstring.isdigit():
-        return int(numberstring)
-    else:
-        return float(numberstring)
-
-
-def read_analysis_versions_file(analysis_versions_file, atlas_style=False):
-
-    analysis_versions = pd.read_csv(analysis_versions_file, sep="\t")
-    analysis_versions.columns = [x.lower() for x in analysis_versions.columns]
-
-    # We need a 'kind' to differentiate software and e.g. reference files.
-    # Atlas hasn't had it up to now (we kind of shoehorned references in
-    # to the software field), but we know what the content of our versions
-    # file is, so we can infer it.
-
-    analysis_versions.rename(columns={"software": "asset"}, inplace=True)
-
-    required_versions_columns = [
-        "analysis",
-        "asset",
-        "version",
-        "citation",
-    ]
-    if not atlas_style:
-        required_versions_columns.append("kind")
-
-    if not set(required_versions_columns).issubset(analysis_versions.columns):
-        errmsg = (
-            "Analysis versions file must have at least columns"
-            f" {required_versions_columns}, recieved"
-            f" {analysis_versions.columns}"
-        )
-        raise Exception(errmsg)
-    else:
-        if "kind" not in analysis_versions.columns:
-            required_versions_columns.append("kind")
-            analysis_versions["kind"] = [
-                "file" if x.lower() == "reference" else "software"
-                for x in analysis_versions["analysis"]
-            ]
-
-    # Remove any other columns that might be present
-
-    analysis_versions = analysis_versions[required_versions_columns]
-
-    return analysis_versions
 
 
 def make_starting_config_from_anndata(
@@ -430,7 +186,9 @@ def make_bundle_from_anndata(
     max_rank_for_stats=5,
     exp_name="NONAME",
     write_premagetab=False,
+    magetab_dir=True,
     write_matrices=True,
+    matrix_for_markers=None,
     **kwargs,
 ):
     # Make sure the config matches the schema and anndata
@@ -447,6 +205,12 @@ def make_bundle_from_anndata(
     # Initialise the manifest
 
     manifest = read_file_manifest(bundle_dir)
+
+    # If curation has been done and MAGE-TAB metadata is available, then we'll
+    # re-write the metadata of the object
+
+    if magetab_dir:
+        adata = overwrite_obs_with_magetab(adata=adata, config= config, magetab_dir = mageetab_dir)
 
     # Write cell metadata (curated cell info)
 
@@ -493,6 +257,7 @@ def make_bundle_from_anndata(
         config=config,
         write_marker_stats=True,
         max_rank_for_stats=max_rank_for_stats,
+        matrix_for_markers=matrix_for_markers,
     )
 
     # Write any dim. reds from obsm
@@ -744,46 +509,6 @@ def write_obsm_from_adata(
     )
 
 
-def clusterings_to_ks(adata, obs_names):
-    return dict(
-        zip(obs_names, [len(adata.obs[c].unique()) for c in obs_names])
-    )
-
-
-def select_clusterings(adata, clusters, atlas_style=True):
-
-    clusterings = list(
-        dict(
-            sorted(
-                dict(
-                    zip(
-                        clusters,
-                        [abs(1 - float(c.split("_")[-1])) for c in clusters],
-                    )
-                ).items(),
-                key=lambda x: x[1],
-            )
-        ).keys()
-    )
-
-    clustering_to_nclust = clusterings_to_ks(adata, clusterings)
-
-    if atlas_style:
-
-        # Only keep the first marker set for a given k. For Atlas, ranked as
-        # above, this will be the makers from the resolution closest to 1 of
-        # clashing sets.
-
-        kept_clusterings = {}
-        for k, v in clustering_to_nclust.items():
-            if v not in kept_clusterings.values():
-                kept_clusterings[k] = v
-
-        clustering_to_nclust = kept_clusterings
-
-    return dict(sorted(clustering_to_nclust.items(), key=lambda item: item[1]))
-
-
 # Write markers for clusterings tagged in the config
 
 
@@ -794,6 +519,7 @@ def write_markers_from_adata(
     config,
     write_marker_stats=True,
     max_rank_for_stats=5,
+    matrix_for_markers = None,
 ):
     marker_groupings_kinds = [
         (x["slot"], x["kind"])
@@ -801,6 +527,15 @@ def write_markers_from_adata(
         if x["markers"]
     ]
     marker_groupings = [x[0] for x in marker_groupings_kinds]
+    if len(marker_groupings) == 0:
+        print(
+            "No cell groupings have markers specified, skipping writing of"
+            " markers and stats"
+        )
+        return
+    else:
+        calculate_markers(adata = adata, config = config, matrix = matrix_for_markers)
+
     clustering_to_k = clusterings_to_ks(adata, marker_groupings)
 
     # Pre-calculate the d/e tables so they can be re-used for stats
@@ -880,16 +615,6 @@ def write_markers_from_adata(
         manifest = set_manifest_value(
             manifest, "marker_stats", statsfile, matrix_for_stats
         )
-
-
-def get_markers_table(adata, marker_grouping):
-
-    de_table = ss.lib._diffexp.extract_de_table(
-        adata.uns[f"markers_{marker_grouping}"]
-    )
-    de_table = de_table.loc[de_table.genes.astype(str) != "nan", :]
-
-    return de_table
 
 
 def make_markers_summary(
