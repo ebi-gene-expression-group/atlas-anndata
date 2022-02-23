@@ -60,7 +60,6 @@ def select_clusterings(adata, clusters, atlas_style=True):
     return dict(sorted(clustering_to_nclust.items(), key=lambda item: item[1]))
 
 
-
 def obs_markers(adata, obs):
 
     """
@@ -90,7 +89,7 @@ def check_slot(adata, slot_type, slot_name):
     True
     """
 
-    print(f"Checking for {slot_type} {slot_name}")
+    print(f"... Checking for {slot_type} {slot_name}")
 
     check_result = False
 
@@ -206,6 +205,7 @@ def slot_kind_from_name(slot_type, slot_name):
             break
 
     return kind
+
 
 def read_analysis_versions_file(analysis_versions_file, atlas_style=False):
 

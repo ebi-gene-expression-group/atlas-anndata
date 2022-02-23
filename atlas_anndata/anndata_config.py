@@ -220,6 +220,7 @@ def describe_analysis(
 
     return conf
 
+
 def load_doc(filename):
     with open(filename, "r") as stream:
         try:
@@ -240,7 +241,7 @@ def validate_config(config):
 
     # Validate against the schema
     schema = load_doc(schema_file)
-    
+
     print(f"Validating config against {schema_file}")
 
     try:

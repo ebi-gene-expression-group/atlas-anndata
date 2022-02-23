@@ -13,4 +13,3 @@ __all__ = [
     "make_starting_config_from_anndata",
     "make_bundle_from_anndata",
 ]
-

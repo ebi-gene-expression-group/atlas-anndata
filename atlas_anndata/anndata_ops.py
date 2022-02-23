@@ -9,6 +9,27 @@ import numpy as np
 from collections import Counter
 import pandas as pd
 import scanpy_scripts as ss
+from .util import (
+    obs_markers,
+)
+
+
+def update_anndata(adata, config, matrix_for_markers=None):
+
+    # Record the config in the object
+    adata.uns["scxa_config"] = config
+
+    # Reset the var names the the specified gene ID field
+    adata.var.set_index(config["gene_meta"]["id_field"], inplace=True)
+
+    # Calcluate markers where necessary
+    marker_groupings = [
+        x["slot"] for x in config["cell_meta"]["entries"] if x["markers"]
+    ]
+    if len(marker_groupings) > 0:
+        calculate_markers(
+            adata=adata, config=config, matrix=matrix_for_markers
+        )
 
 
 def overwrite_obs_with_magetab(adata, config, magetab_dir):
@@ -224,9 +245,12 @@ def calculate_markers(adata, config, matrix="X"):
     # indicated matrix is suitable
 
     if any([not obs_markers(adata, mg) for mg in marker_groupings]):
+
+        layer = None
+
         matrix_description = [
             x for x in config["matrices"]["entries"] if x["slot"] == matrix
-        ]
+        ][0]
 
         if (
             matrix_description["scaled"]
@@ -241,6 +265,8 @@ def calculate_markers(adata, config, matrix="X"):
                 " transformations as required."
             )
             raise Exception(errmsg)
+        elif matrix != "X":
+            layer = matrix
 
         for mg in marker_groupings:
             if not obs_markers(adata, mg):
@@ -248,7 +274,13 @@ def calculate_markers(adata, config, matrix="X"):
                     f"Marker statistics not currently available for {mg},"
                     " recalculating with Scanpy..."
                 )
-                sc.tl.rank_genes_groups(adata, mg, method="wilcoxon")
+                sc.tl.rank_genes_groups(
+                    adata,
+                    mg,
+                    method="wilcoxon",
+                    layer=layer,
+                    key_added="markers_" + mg,
+                )
 
     else:
         print()

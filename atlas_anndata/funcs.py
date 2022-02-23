@@ -31,9 +31,11 @@ from .util import (
 )
 
 from .anndata_ops import (
+    update_anndata,
     derive_metadata,
     get_markers_table,
     overwrite_obs_with_magetab,
+    calculate_markers,
 )
 
 scxa_h5ad_test = pkg_resources.resource_filename(
@@ -206,11 +208,17 @@ def make_bundle_from_anndata(
 
     manifest = read_file_manifest(bundle_dir)
 
+    # Make any required updates to the annData object
+
+    update_anndata(adata, config, matrix_for_markers=matrix_for_markers)
+
     # If curation has been done and MAGE-TAB metadata is available, then we'll
     # re-write the metadata of the object
 
     if magetab_dir:
-        adata = overwrite_obs_with_magetab(adata=adata, config= config, magetab_dir = mageetab_dir)
+        adata = overwrite_obs_with_magetab(
+            adata=adata, config=config, magetab_dir=magetab_dir
+        )
 
     # Write cell metadata (curated cell info)
 
@@ -257,7 +265,6 @@ def make_bundle_from_anndata(
         config=config,
         write_marker_stats=True,
         max_rank_for_stats=max_rank_for_stats,
-        matrix_for_markers=matrix_for_markers,
     )
 
     # Write any dim. reds from obsm
@@ -282,9 +289,6 @@ def make_bundle_from_anndata(
         )
 
     print("Writing annData file")
-
-    # Record the config in the object
-    adata.uns["scxa_config"] = config
 
     adata_filename = f"{exp_name}.project.h5ad"
     adata.write(f"{bundle_dir}/{adata_filename}")
@@ -519,7 +523,6 @@ def write_markers_from_adata(
     config,
     write_marker_stats=True,
     max_rank_for_stats=5,
-    matrix_for_markers = None,
 ):
     marker_groupings_kinds = [
         (x["slot"], x["kind"])
@@ -533,8 +536,6 @@ def write_markers_from_adata(
             " markers and stats"
         )
         return
-    else:
-        calculate_markers(adata = adata, config = config, matrix = matrix_for_markers)
 
     clustering_to_k = clusterings_to_ks(adata, marker_groupings)
 
@@ -585,6 +586,11 @@ def write_markers_from_adata(
     if write_marker_stats and "load_to_scxa_db" in config["matrices"]:
 
         matrix_for_stats = config["matrices"]["load_to_scxa_db"]
+        matrix_for_stats_name = [
+            x["name"]
+            for x in config["matrices"]["entries"]
+            if x["slot"] == matrix_for_stats
+        ][0]
 
         # Add mean and median for cell groups to the anndata
 
@@ -607,7 +613,7 @@ def write_markers_from_adata(
                 for cell_grouping, de_table in de_tables.items()
             ]
         )
-        statsfile = f"{bundle_dir}/{matrix_for_stats}_stats.csv"
+        statsfile = f"{bundle_dir}/{matrix_for_stats_name}_stats.csv"
 
         marker_summary.to_csv(
             statsfile, index=False, quoting=csv.QUOTE_NONNUMERIC
@@ -673,6 +679,8 @@ def make_markers_summary(
             markers_summary["cluster_id"] = [
                 int(x) + 1 for x in markers_summary["cluster_id"]
             ]
+    else:
+        markers_summary["grouping_where_marker"] = marker_grouping
 
     # Convert cell group columns to strings
 
