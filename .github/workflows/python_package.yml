@@ -29,7 +29,7 @@ jobs:
           pip install .
       - name: Run function tests
         run: |
-          python atlas_anndata/funcs.py
+          pytest --doctest-modules -v ./atlas_anndata
       - name: Test CLI, config creation from annData
         run: |
           make_starting_config_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml --atlas-style
