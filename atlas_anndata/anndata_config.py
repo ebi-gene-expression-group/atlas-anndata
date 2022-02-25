@@ -1,7 +1,14 @@
 import yaml
+import scanpy as sc
 import jsonschema
 from jsonschema import validate
-from .strings import MISSING, MISSING_STRING, schema_file, example_config_file
+from .strings import (
+    MISSING,
+    MISSING_STRING,
+    scxa_h5ad_test,
+    schema_file,
+    example_config_file,
+)
 import sys
 
 from .util import (
@@ -16,6 +23,13 @@ import math
 
 
 def describe_matrices(adata, atlas_style=False, droplet=False):
+
+    """Make starting config for the matrix content of an anndata object
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> describe_matrices(adata, atlas_style = True) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    {'load_to_scxa_db': 'normalised', 'entries': [{'slot': 'raw.X', 'name': 'FILL ME with a string', ...
+    """
 
     conf = {"load_to_scxa_db": MISSING_STRING, "entries": []}
 
@@ -70,6 +84,15 @@ def describe_cellmeta(
     sample_field="sample",
 ):
 
+    """Make starting config for the cell metadata content of an anndata object
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> # Simplify cell metadata for the purposes of this test
+    >>> adata.obs = adata.obs.T.head().T
+    >>> describe_cellmeta(adata, atlas_style = True) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    {'entries': [{'slot': 'age', 'kind': 'curation', 'parameters': {}, 'default': False, ...
+    """
+
     conf = {"entries": []}
 
     # Check that we actually have some obs
@@ -123,28 +146,38 @@ def describe_cellmeta(
         x["slot"] for x in conf["entries"] if x["kind"] == "clustering"
     ]
 
-    cluster_obs = list(
-        select_clusterings(
-            adata, clusters=cluster_obs, atlas_style=atlas_style
-        ).keys()
-    )
+    if len(cluster_obs) > 0:
+        cluster_obs = list(
+            select_clusterings(
+                adata, clusters=cluster_obs, atlas_style=atlas_style
+            ).keys()
+        )
 
-    if default_clustering is None:
+        if default_clustering is None:
 
-        # Try to set a default clustering
-        if atlas_style and "louvain_resolution_1.0" in cluster_obs:
-            default_clustering = "louvain_resolution_1.0"
-        else:
-            default_clustering = cluster_obs[
-                math.floor((len(cluster_obs) - 1) / 2)
-            ]
+            # Try to set a default clustering
+            if atlas_style and "louvain_resolution_1.0" in cluster_obs:
+                default_clustering = "louvain_resolution_1.0"
+            else:
+                default_clustering = cluster_obs[
+                    math.floor((len(cluster_obs) - 1) / 2)
+                ]
 
-        conf["entries"][config_obs.index(default_clustering)]["default"] = True
+            conf["entries"][config_obs.index(default_clustering)][
+                "default"
+            ] = True
 
     return conf
 
 
 def describe_dimreds(adata, atlas_style=False, droplet=False):
+
+    """Make starting config for the cell metadata content of an anndata object
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> describe_dimreds(adata, atlas_style = True)  # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    {'entries': [{'slot': 'X_pca', 'kind': 'pca', 'parameters': {}}, ...
+    """
 
     conf = {"entries": []}
 
@@ -171,6 +204,15 @@ def describe_genemeta(
     gene_id_field="gene_id",
     gene_name_field="gene_name",
 ):
+    """Make starting config for the gene metadata content of an anndata object
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> describe_genemeta(adata, gene_id_field = 'index')
+    ..Checking for gene_meta gene_name
+    ..Checking for gene_meta index
+    {'name_field': 'gene_name', 'id_field': 'index'}
+    """
+
     return {
         "name_field": gene_name_field
         if check_slot(adata, "gene_meta", gene_name_field)
@@ -184,6 +226,12 @@ def describe_genemeta(
 def describe_analysis(
     adata, atlas_style=False, droplet=False, analysis_versions_file=None
 ):
+    """Make starting config for the gene metadata content of an anndata object
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> describe_analysis(adata, atlas_style = True)  # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    [{'analysis': 'reference', 'kind': 'file', 'asset': 'FILL ME with a string', ...
+    """
 
     conf = []
 
@@ -215,6 +263,14 @@ def describe_analysis(
 
 
 def load_doc(filename):
+
+    """Load a YAML into a dictionary
+
+
+    >>> load_doc(example_config_file)  # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    {'exp-name': 'E-MTAB-1234', 'droplet': False, 'matrices': {'entries': [{'slot': 'raw.X', ...
+    """
+
     with open(filename, "r") as stream:
         try:
             return yaml.safe_load(stream)
