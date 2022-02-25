@@ -17,11 +17,12 @@ from .anndata_config import (
 )
 from .strings import schema_file, example_config_file, scxa_h5ad_test
 
-def update_anndata(adata, config, matrix_for_markers=None, use_raw = None):
-    
+
+def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
+
     """
     Check if a particular cell metadata field has an associated marker set
-    
+
     >>> adata = sc.read(scxa_h5ad_test)
     >>> egconfig = load_doc(example_config_file)
     >>> adata.uns.keys()
@@ -37,7 +38,7 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw = None):
     adata.uns["scxa_config"] = config
 
     # Reset the var names the the specified gene ID field
-    if config["gene_meta"]["id_field"] != 'index':
+    if config["gene_meta"]["id_field"] != "index":
         adata.var.set_index(config["gene_meta"]["id_field"], inplace=True)
 
     # Calcluate markers where necessary
@@ -46,7 +47,10 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw = None):
     ]
     if len(marker_groupings) > 0:
         calculate_markers(
-            adata=adata, config=config, matrix=matrix_for_markers, use_raw = use_raw
+            adata=adata,
+            config=config,
+            matrix=matrix_for_markers,
+            use_raw=use_raw,
         )
 
 
@@ -253,7 +257,7 @@ def get_markers_table(adata, marker_grouping):
     return de_table
 
 
-def calculate_markers(adata, config, matrix="X", use_raw = None):
+def calculate_markers(adata, config, matrix="X", use_raw=None):
 
     marker_groupings = [
         x["slot"] for x in config["cell_meta"]["entries"] if x["markers"]
@@ -303,4 +307,3 @@ def calculate_markers(adata, config, matrix="X", use_raw = None):
 
     else:
         print()
-

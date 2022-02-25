@@ -40,6 +40,7 @@ from .anndata_ops import (
 
 from .strings import schema_file, example_config_file, scxa_h5ad_test
 
+
 def validate_anndata_with_config(anndata_config, anndata_file):
 
     """Validate an anndata against a config
@@ -657,10 +658,7 @@ def make_markers_summary(
     )
 
     if max_rank:
-        print(
-            f"..limiting stats report to top {max_rank} differential"
-            " genes"
-        )
+        print(f"..limiting stats report to top {max_rank} differential genes")
         markers_summary = markers_summary[
             markers_summary["rank"] <= (max_rank - 1)
         ]
@@ -846,4 +844,3 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
         mean, median = grouped.mean(), grouped.median()
         adata.varm[f"mean_{matrix}_{ob}"] = mean.transpose()
         adata.varm[f"median_{matrix}_{ob}"] = median.transpose()
-

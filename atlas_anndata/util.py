@@ -85,7 +85,7 @@ def check_slot(adata, slot_type, slot_name):
     """Check for a slot in an anndata object
 
     >>> adata = sc.read(scxa_h5ad_test)
-    >>> check = check_slot(adata, 'matrices', 'X')  
+    >>> check = check_slot(adata, 'matrices', 'X')
     ..Checking for matrices X
     >>> check
     True
