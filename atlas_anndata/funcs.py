@@ -742,7 +742,9 @@ def fill_gene_names(adata, gene_name_field="gene_name"):
         genes_with_missing_names = list(
             adata.var_names[pd.isnull(adata.var[gene_name_field])]
         )
-        adata.var[gene_name_field] = adata.var[gene_name_field].cat.add_categories(genes_with_missing_names)
+        adata.var[gene_name_field] = adata.var[
+            gene_name_field
+        ].cat.add_categories(genes_with_missing_names)
         adata.var.loc[
             genes_with_missing_names, gene_name_field
         ] = genes_with_missing_names
