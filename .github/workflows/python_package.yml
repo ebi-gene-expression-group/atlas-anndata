@@ -26,6 +26,7 @@ jobs:
           args: '--filename="*" -vv'
       - name: Install dependencies
         run: |
+          pip install pytest
           pip install .
       - name: Run function tests
         run: |
