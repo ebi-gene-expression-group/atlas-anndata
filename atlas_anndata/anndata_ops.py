@@ -12,15 +12,33 @@ import scanpy_scripts as ss
 from .util import (
     obs_markers,
 )
+from .anndata_config import (
+    load_doc,
+)
+from .strings import schema_file, example_config_file, scxa_h5ad_test
 
-
-def update_anndata(adata, config, matrix_for_markers=None):
+def update_anndata(adata, config, matrix_for_markers=None, use_raw = None):
+    
+    """
+    Check if a particular cell metadata field has an associated marker set
+    
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> egconfig = load_doc(example_config_file)
+    >>> adata.uns.keys()
+    dict_keys(['hvg', 'markers_louvain_resolution_0.7', 'markers_louvain_resolution_0.7_filtered', 'markers_louvain_resolution_1.0', 'markers_louvain_resolution_1.0_filtered', 'markers_louvain_resolution_2.0', 'markers_louvain_resolution_2.0_filtered', 'markers_louvain_resolution_3.0', 'markers_louvain_resolution_3.0_filtered', 'markers_louvain_resolution_4.0', 'markers_louvain_resolution_4.0_filtered', 'markers_louvain_resolution_5.0', 'markers_louvain_resolution_5.0_filtered', 'neighbors', 'pca'])
+    >>> del adata.uns['markers_louvain_resolution_0.7']
+    >>> matrix_for_markers = 'normalised'
+    >>> sc.pp.log1p(adata, layer = matrix_for_markers)
+    >>> update_anndata(adata, egconfig, matrix_for_markers=matrix_for_markers, use_raw = False)
+    Marker statistics not currently available for louvain_resolution_0.7, recalculating with Scanpy...
+    """
 
     # Record the config in the object
     adata.uns["scxa_config"] = config
 
     # Reset the var names the the specified gene ID field
-    adata.var.set_index(config["gene_meta"]["id_field"], inplace=True)
+    if config["gene_meta"]["id_field"] != 'index':
+        adata.var.set_index(config["gene_meta"]["id_field"], inplace=True)
 
     # Calcluate markers where necessary
     marker_groupings = [
@@ -28,7 +46,7 @@ def update_anndata(adata, config, matrix_for_markers=None):
     ]
     if len(marker_groupings) > 0:
         calculate_markers(
-            adata=adata, config=config, matrix=matrix_for_markers
+            adata=adata, config=config, matrix=matrix_for_markers, use_raw = use_raw
         )
 
 
@@ -83,7 +101,7 @@ def derive_metadata(adata, config, kind=None):
         if sample_field in adata.obs.columns:
 
             print(
-                "... deriving runs using supplied sample ID column"
+                "...deriving runs using supplied sample ID column"
                 f" {sample_field}"
             )
 
@@ -97,7 +115,7 @@ def derive_metadata(adata, config, kind=None):
             ]
 
         else:
-            print("... deriving runs and barcodes by parsing cell IDs")
+            print("...deriving runs and barcodes by parsing cell IDs")
             runs, barcodes = parse_cell_ids(adata)
 
         # If we had to derive run IDs from cell IDs, save them in the metadata
@@ -114,7 +132,7 @@ def derive_metadata(adata, config, kind=None):
         # Split cell metadata by run ID and create run-wise metadata with
         # any invariant value across all cells of a run
 
-        print("... extracting metadata consistent within samples")
+        print("..extracting metadata consistent within samples")
         unique_runs = list(set(runs))
         submetas = [cell_metadata[[y == x for y in runs]] for x in unique_runs]
         sample_metadata = pd.concat(
@@ -126,7 +144,7 @@ def derive_metadata(adata, config, kind=None):
         )
         sample_metadata["run"] = unique_runs
         sample_metadata.set_index("run", inplace=True)
-        print("... assigning other metadata as cell_specific")
+        print("..assigning other metadata as cell_specific")
         cell_specific_metadata = cell_metadata[
             [sample_field]
             + [
@@ -235,7 +253,7 @@ def get_markers_table(adata, marker_grouping):
     return de_table
 
 
-def calculate_markers(adata, config, matrix="X"):
+def calculate_markers(adata, config, matrix="X", use_raw = None):
 
     marker_groupings = [
         x["slot"] for x in config["cell_meta"]["entries"] if x["markers"]
@@ -280,7 +298,9 @@ def calculate_markers(adata, config, matrix="X"):
                     method="wilcoxon",
                     layer=layer,
                     key_added="markers_" + mg,
+                    use_raw=use_raw,
                 )
 
     else:
         print()
+

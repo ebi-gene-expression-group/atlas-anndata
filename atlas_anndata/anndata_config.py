@@ -1,8 +1,7 @@
-import pkg_resources
 import yaml
 import jsonschema
 from jsonschema import validate
-from .strings import MISSING, MISSING_STRING
+from .strings import MISSING, MISSING_STRING, schema_file, example_config_file
 import sys
 
 from .util import (
@@ -13,14 +12,6 @@ from .util import (
     read_analysis_versions_file,
 )
 import math
-
-schema_file = pkg_resources.resource_filename(
-    "atlas_anndata", "config_schema.yaml"
-)
-example_config_file = pkg_resources.resource_filename(
-    "atlas_anndata", "example_config.yaml"
-)
-
 
 def describe_matrices(adata, atlas_style=False, droplet=False):
 
@@ -235,7 +226,8 @@ def validate_config(config):
 
 
     >>> egconfig = load_doc(example_config_file)
-    >>> validate_config(egconfig)
+    >>> validate_config(egconfig) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    Validating ... against .../atlas_anndata/config_schema.yaml
     True
     """
 

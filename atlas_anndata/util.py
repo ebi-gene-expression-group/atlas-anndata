@@ -1,8 +1,10 @@
 from .strings import MISSING_STRING
+import scanpy as sc
 import re
 import yaml
 import scanpy_scripts as ss
 import pandas as pd
+from .strings import schema_file, example_config_file, scxa_h5ad_test
 
 
 def string_to_numeric(numberstring):
@@ -83,13 +85,13 @@ def check_slot(adata, slot_type, slot_name):
     """Check for a slot in an anndata object
 
     >>> adata = sc.read(scxa_h5ad_test)
-    >>> check = check_slot(adata, 'matrices', 'X')
-    Checking for matrices X
+    >>> check = check_slot(adata, 'matrices', 'X')  
+    ..Checking for matrices X
     >>> check
     True
     """
 
-    print(f"... Checking for {slot_type} {slot_name}")
+    print(f"..Checking for {slot_type} {slot_name}")
 
     check_result = False
 

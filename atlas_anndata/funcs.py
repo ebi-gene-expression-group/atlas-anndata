@@ -38,10 +38,7 @@ from .anndata_ops import (
     calculate_markers,
 )
 
-scxa_h5ad_test = pkg_resources.resource_filename(
-    "atlas_anndata", "data/E-MTAB-6077.project.h5ad"
-)
-
+from .strings import schema_file, example_config_file, scxa_h5ad_test
 
 def validate_anndata_with_config(anndata_config, anndata_file):
 
@@ -51,20 +48,20 @@ def validate_anndata_with_config(anndata_config, anndata_file):
     ... example_config_file,
     ... scxa_h5ad_test
     ... ) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
-    Validating .../atlas_anndata/example_config.yaml against
-    .../atlas_anndata/config_schema.yaml
+    Validating ... against .../atlas_anndata/config_schema.yaml
     Config YAML file successfully validated
     Now checking config against anndata file
-    Checking for matrices raw.X
-    Checking for matrices filtered
-    Checking for matrices normalised
-    Checking for cell_meta organism_part
-    Checking for cell_meta louvain_resolution_0.7
-    Checking for cell_meta louvain_resolution_1.0
-    Checking for dimension_reductions X_umap_neighbors_n_neighbors_3
-    Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
-    Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
-    Checking for gene_meta gene_name
+    ..Checking for matrices raw.X
+    ..Checking for matrices filtered
+    ..Checking for matrices normalised
+    ..Checking for cell_meta organism_part
+    ..Checking for cell_meta louvain_resolution_0.7
+    ..Checking for cell_meta louvain_resolution_1.0
+    ..Checking for dimension_reductions X_umap_neighbors_n_neighbors_3
+    ..Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
+    ..Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
+    ..Checking for gene_meta index
+    ..Checking for gene_meta gene_name
     annData file successfully validated against config ...
     """
 
@@ -627,7 +624,7 @@ def make_markers_summary(
     adata, layer, marker_grouping, de_table, max_rank=5, cell_group_kind=None
 ):
 
-    print(f"... calculating stats for cell grouping {marker_grouping}")
+    print(f"..calculating stats for cell grouping {marker_grouping}")
 
     summary_stats = (
         pd.concat(
@@ -661,7 +658,7 @@ def make_markers_summary(
 
     if max_rank:
         print(
-            f"...... limiting stats report to top {max_rank} differential"
+            f"..limiting stats report to top {max_rank} differential"
             " genes"
         )
         markers_summary = markers_summary[
@@ -850,8 +847,3 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
         adata.varm[f"mean_{matrix}_{ob}"] = mean.transpose()
         adata.varm[f"median_{matrix}_{ob}"] = median.transpose()
 
-
-if __name__ == "__main__":
-    import doctest
-
-    sys.exit(doctest.testmod(verbose=True)[0])
