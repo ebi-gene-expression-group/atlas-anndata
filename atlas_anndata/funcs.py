@@ -129,7 +129,7 @@ def make_starting_config_from_anndata(
     atlas_style=False,
     exp_name=None,
     droplet=False,
-    gene_id_field="gene_id",
+    gene_id_field="index",
     gene_name_field="gene_name",
     sample_field="sample",
     default_clustering=None,
@@ -141,6 +141,8 @@ def make_starting_config_from_anndata(
     editing, from the content of a provided annData file.
 
     >>> make_starting_config_from_anndata(scxa_h5ad_test, '/tmp/foo.yaml')
+    ..Checking for gene_meta gene_name
+    ..Checking for gene_meta index
     """
 
     adata = sc.read(anndata_file)
