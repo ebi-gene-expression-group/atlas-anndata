@@ -4,7 +4,12 @@ import re
 import yaml
 import scanpy_scripts as ss
 import pandas as pd
-from .strings import schema_file, example_config_file, scxa_h5ad_test
+from .strings import (
+    schema_file,
+    example_config_file,
+    example_software_file,
+    scxa_h5ad_test,
+)
 
 
 def string_to_numeric(numberstring):
@@ -23,12 +28,43 @@ def string_to_numeric(numberstring):
 
 
 def clusterings_to_ks(adata, obs_names):
+
+    """Make a dictionary mapping specified cell groupings to numbers of clusters.
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> from atlas_anndata.anndata_config import load_doc
+    >>> egconfig = load_doc(example_config_file)
+    >>> cluster_obs = [
+    ... x["slot"]
+    ... for x in egconfig["cell_meta"]["entries"]
+    ... if x["kind"] == "clustering"
+    ... ]
+    >>> clusterings_to_ks(adata, cluster_obs)
+    {'louvain_resolution_0.7': 2, 'louvain_resolution_1.0': 5}
+    """
+
     return dict(
         zip(obs_names, [len(adata.obs[c].unique()) for c in obs_names])
     )
 
 
 def select_clusterings(adata, clusters, atlas_style=True):
+
+    """
+    Pick clusterings to use. This is a wrapper around clusterings_to_ks(), for
+    example to remove multiple clusterings with the same k value
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> from atlas_anndata.anndata_config import load_doc
+    >>> egconfig = load_doc(example_config_file)
+    >>> cluster_obs = [
+    ... x["slot"]
+    ... for x in egconfig["cell_meta"]["entries"]
+    ... if x["kind"] == "clustering"
+    ... ]
+    >>> select_clusterings(adata, cluster_obs, atlas_style = True)
+    {'louvain_resolution_0.7': 2, 'louvain_resolution_1.0': 5}
+    """
 
     clusterings = list(
         dict(
@@ -210,6 +246,20 @@ def slot_kind_from_name(slot_type, slot_name):
 
 
 def read_analysis_versions_file(analysis_versions_file, atlas_style=False):
+
+    """Read a tab-separated versions file into a Pandas dataframe
+
+    >>> analysis = read_analysis_versions_file(example_software_file, atlas_style = True)
+    >>> analysis.head()
+                   analysis  ...      kind
+    0            Build List  ...  software
+    1  clustering_slotnames  ...  software
+    2        Column arrange  ...  software
+    3                   Cut  ...  software
+    4          filter_cells  ...  software
+    <BLANKLINE>
+    [5 rows x 5 columns]
+    """
 
     analysis_versions = pd.read_csv(analysis_versions_file, sep="\t")
     analysis_versions.columns = [x.lower() for x in analysis_versions.columns]

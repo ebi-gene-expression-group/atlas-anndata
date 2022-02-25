@@ -10,7 +10,9 @@ schema_file = pkg_resources.resource_filename(
 example_config_file = pkg_resources.resource_filename(
     "atlas_anndata", "example_config.yaml"
 )
-
+example_software_file = pkg_resources.resource_filename(
+    "atlas_anndata", "example_software.tsv"
+)
 scxa_h5ad_test = pkg_resources.resource_filename(
     "atlas_anndata", "data/E-MTAB-6077.project.h5ad"
 )
