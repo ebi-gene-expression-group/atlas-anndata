@@ -69,7 +69,27 @@ def overwrite_obs_with_magetab(adata, config, magetab_dir):
 
 def derive_metadata(adata, config, kind=None):
 
-    """Extract cell metadata, select fields and separate out run-wise info."""
+    """Extract cell metadata, select fields and separate out run-wise info.
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> egconfig = load_doc(example_config_file)
+    >>> pd.set_option('display.max_columns', 3)
+    >>> derive_metadata(adata, egconfig)
+    (                age  ... louvain_resolution_5.0
+    ERR2146881  10 hour  ...                      4
+    ERR2146882  10 hour  ...                     29
+    ERR2146883  10 hour  ...                     20
+    ERR2146884  10 hour  ...                     11
+    ERR2146885  10 hour  ...                     30
+    ...             ...  ...                    ...
+    ERR2146972  10 hour  ...                     10
+    ERR2146973  10 hour  ...                      1
+    ERR2146974  10 hour  ...                     12
+    ERR2146975  10 hour  ...                     25
+    ERR2146976  10 hour  ...                     10
+    <BLANKLINE>
+    [94 rows x 39 columns], None, None)
+    """
 
     sample_metadata = None
     cell_specific_metadata = None
@@ -166,6 +186,15 @@ def parse_cell_ids(adata, sample_name_col=None):
     Cell names in droplet data are normally some composite of
     run/sample/library and barcode. But how that composite is done is the wild
     west. Maybe we can tame the madness.
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> # To test this we'll spoof a droplet experiment using our non-droplet test data
+    >>> adata.obs.set_index(adata.obs_names + '-' +'ATGCATGC', inplace = True)
+    >>> parsed = parse_cell_ids(adata)
+    >>> parsed[0][0:4]
+    ['ERR2146881', 'ERR2146882', 'ERR2146883', 'ERR2146884']
+    >>> parsed[1][0:4]
+    ['ATGCATGC', 'ATGCATGC', 'ATGCATGC', 'ATGCATGC']
     """
 
     id_patterns = {
@@ -249,6 +278,26 @@ def parse_cell_ids(adata, sample_name_col=None):
 
 def get_markers_table(adata, marker_grouping):
 
+    """Use a routine from scanpy-scripts to derive a table of marker information
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> get_markers_table(adata, 'louvain_resolution_0.7')
+        cluster  ... pvals_adj
+    0         0  ...  0.000015
+    1         0  ...  0.000490
+    2         0  ...  0.000862
+    3         0  ...  0.000862
+    4         0  ...  0.002383
+    ..      ...  ...       ...
+    195       1  ...  0.140662
+    196       1  ...  0.140662
+    197       1  ...  0.143254
+    198       1  ...  0.151686
+    199       1  ...  0.154489
+    <BLANKLINE>
+    [200 rows x 8 columns]
+    """
+
     de_table = ss.lib._diffexp.extract_de_table(
         adata.uns[f"markers_{marker_grouping}"]
     )
@@ -258,6 +307,17 @@ def get_markers_table(adata, marker_grouping):
 
 
 def calculate_markers(adata, config, matrix="X", use_raw=None):
+
+    """Calculate any missing marker sets for .obs columns tagged in the config
+    has needing them, but which don't currently have them
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> egconfig = load_doc(example_config_file)
+    >>> del adata.uns['markers_louvain_resolution_0.7']
+    >>> matrix_for_markers = 'normalised'
+    >>> calculate_markers(adata, egconfig, matrix = matrix_for_markers, use_raw = False)
+    Marker statistics not currently available for louvain_resolution_0.7, recalculating with Scanpy...
+    """
 
     marker_groupings = [
         x["slot"] for x in config["cell_meta"]["entries"] if x["markers"]
@@ -306,4 +366,4 @@ def calculate_markers(adata, config, matrix="X", use_raw=None):
                 )
 
     else:
-        print()
+        print("All marker sets detailed in config present and correct")
