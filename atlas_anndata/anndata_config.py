@@ -5,6 +5,7 @@ from .strings import MISSING, MISSING_STRING, schema_file, example_config_file
 import sys
 
 from .util import (
+    check_slot,
     slot_kind_from_name,
     extract_parameterisation,
     obs_markers,
@@ -172,10 +173,10 @@ def describe_genemeta(
 ):
     return {
         "name_field": gene_name_field
-        if gene_name_field in adata.var.columns
+        if check_slot(adata, "gene_meta", gene_name_field)
         else MISSING_STRING,
         "id_field": gene_id_field
-        if gene_id_field in adata.var.columns
+        if check_slot(adata, "gene_meta", gene_id_field)
         else MISSING_STRING,
     }
 

@@ -31,7 +31,7 @@ from atlas_anndata import make_starting_config_from_anndata
 )
 @click.option(
     "--gene-id-field",
-    default="gene_name",
+    default="index",
     help="Field in .var where gene ID is stored.",
 )
 @click.option(
