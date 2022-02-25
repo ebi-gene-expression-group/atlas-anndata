@@ -736,7 +736,7 @@ def set_manifest_value(manifest, description, filename, parameterisation=""):
 
 def fill_gene_names(adata, gene_name_field="gene_name"):
 
-    if gene_name_field not in adata.var_names:
+    if gene_name_field in adata.var.columns:
 
         # For any genes without names, assign the ID
         genes_with_missing_names = list(
