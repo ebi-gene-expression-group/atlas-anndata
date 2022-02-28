@@ -202,8 +202,8 @@ def make_bundle_from_anndata(
 
     """Make the bundle from an annData file and an associated config
 
-    >>> make_bundle_from_anndata(anndata_file = scxa_h5ad_test, anndata_config = example_config_file, bundle_dir = 'test_bundle', write_premagetab = True)
-    Validating config against /hps/software/users/ma/jmanning/git_checkouts/atlas-anndata/atlas_anndata/config_schema.yaml
+    >>> make_bundle_from_anndata(anndata_file = scxa_h5ad_test, anndata_config = example_config_file, bundle_dir = 'test_bundle', write_premagetab = True) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    Validating config against .../config_schema.yaml
     Config YAML file successfully validated
     Now checking config against anndata file
     ..Checking for matrices raw.X
@@ -218,7 +218,7 @@ def make_bundle_from_anndata(
     ..Checking for matrices normalised
     ..Checking for gene_meta index
     ..Checking for gene_meta gene_name
-    annData file successfully validated against config /hps/software/users/ma/jmanning/git_checkouts/atlas-anndata/atlas_anndata/example_config.yaml
+    annData file successfully validated against config ...
     All marker sets detailed in config present and correct
     Writing obs metadata of kind: curation
     Writing matrices
