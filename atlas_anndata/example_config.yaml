@@ -15,6 +15,7 @@ matrices:
     gene_filtered: False
     normalised: False
     log_transformed: False
+    scaled: False
 
   - slot: filtered
     name: filtered
@@ -23,6 +24,7 @@ matrices:
     gene_filtered: True
     normalised: False
     log_transformed: False
+    scaled: False
     
     parameters:
       min_count: 3
@@ -34,6 +36,9 @@ matrices:
     gene_filtered: True
     normalised: True
     log_transformed: True
+    scaled: False
+  
+  load_to_scxa_db: 'normalised'
     
 
 # Cell groups, slots correspond to columns in .obs. Two categories:
@@ -72,6 +77,7 @@ cell_meta:
 
 gene_meta:
   name_field: gene_name
+  id_field: index
 
 # Dimension reductions, slots correspond to keys in .obsm
 

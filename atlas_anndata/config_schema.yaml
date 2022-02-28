@@ -36,13 +36,17 @@ properties:
     gene_meta:
         type: object
         properties:
+            id_field:
+                type: string
             name_field:
                 type: string
-        required: [ name_field ]
+        required: [ id_field, name_field ]
 
     cell_meta:
         type: object
         properties:
+            sample_col:
+                type: string
             entries:
                 type: array
                 items:
@@ -75,7 +79,7 @@ properties:
                             type: boolean
                         kind: 
                             type: string
-                            pattern: "^(tsne|umap|pca)$"
+                            pattern: "^(tsne|umap|pca|scanvi)$"
                         parameters:
                             type: object
                     required: [ slot, kind ]
