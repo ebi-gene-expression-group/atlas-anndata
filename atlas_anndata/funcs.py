@@ -38,7 +38,12 @@ from .anndata_ops import (
     calculate_markers,
 )
 
-from .strings import schema_file, example_config_file, scxa_h5ad_test
+from .strings import (
+    schema_file,
+    example_manifest,
+    example_config_file,
+    scxa_h5ad_test,
+)
 
 
 def validate_anndata_with_config(anndata_config, anndata_file):
@@ -61,6 +66,7 @@ def validate_anndata_with_config(anndata_config, anndata_file):
     ..Checking for dimension_reductions X_umap_neighbors_n_neighbors_3
     ..Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
     ..Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
+    ..Checking for matrices normalised
     ..Checking for gene_meta index
     ..Checking for gene_meta gene_name
     annData file successfully validated against config ...
@@ -193,6 +199,46 @@ def make_bundle_from_anndata(
     matrix_for_markers=None,
     **kwargs,
 ):
+
+    """Make the bundle from an annData file and an associated config
+
+    >>> make_bundle_from_anndata(anndata_file = scxa_h5ad_test, anndata_config = example_config_file, bundle_dir = 'test_bundle', write_premagetab = True)
+    Validating config against /hps/software/users/ma/jmanning/git_checkouts/atlas-anndata/atlas_anndata/config_schema.yaml
+    Config YAML file successfully validated
+    Now checking config against anndata file
+    ..Checking for matrices raw.X
+    ..Checking for matrices filtered
+    ..Checking for matrices normalised
+    ..Checking for cell_meta organism_part
+    ..Checking for cell_meta louvain_resolution_0.7
+    ..Checking for cell_meta louvain_resolution_1.0
+    ..Checking for dimension_reductions X_umap_neighbors_n_neighbors_3
+    ..Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
+    ..Checking for dimension_reductions X_umap_neighbors_n_neighbors_10
+    ..Checking for matrices normalised
+    ..Checking for gene_meta index
+    ..Checking for gene_meta gene_name
+    annData file successfully validated against config /hps/software/users/ma/jmanning/git_checkouts/atlas-anndata/atlas_anndata/example_config.yaml
+    All marker sets detailed in config present and correct
+    Writing obs metadata of kind: curation
+    Writing matrices
+    .. Writing matrix from slot raw.X to subdir raw
+    .. Writing matrix from slot filtered to subdir filtered
+    .. Writing matrix from slot normalised to subdir normalised
+    Writing obs (unsupervised clusterings)
+    Writing markers and statistics
+    Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7', 'louvain_resolution_1.0']
+    ..calculating summary for cell grouping louvain_resolution_0.7
+    ..limiting stats report to top 5 differential genes
+    ..calculating summary for cell grouping louvain_resolution_1.0
+    ..limiting stats report to top 5 differential genes
+    Writing dimension reductions
+    .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_3
+    .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
+    .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
+    Writing analysis versions table
+    Writing annData file"""
+
     # Make sure the config matches the schema and anndata
 
     config, adata = validate_anndata_with_config(anndata_config, anndata_file)
@@ -222,7 +268,6 @@ def make_bundle_from_anndata(
 
     # Write cell metadata (curated cell info)
 
-    print("Writing obs (curated metadata)")
     write_cell_metadata(
         manifest=manifest,
         adata=adata,
@@ -236,7 +281,6 @@ def make_bundle_from_anndata(
     # Write matrices
 
     if write_matrices:
-        print("Writing matrices")
         write_matrices_from_adata(
             manifest=manifest,
             bundle_dir=bundle_dir,
@@ -247,7 +291,6 @@ def make_bundle_from_anndata(
     # Write clusters (analytically derived cell groupings). For historical
     # reasons this is written differently to e.g. curated metadata
 
-    print("Writing obs (unsupervised clusterings)")
     write_clusters_from_adata(
         manifest=manifest,
         bundle_dir=bundle_dir,
@@ -257,7 +300,6 @@ def make_bundle_from_anndata(
 
     # Write any associated markers
 
-    print("Writing markers and statistics")
     write_markers_from_adata(
         manifest=manifest,
         bundle_dir=bundle_dir,
@@ -269,7 +311,6 @@ def make_bundle_from_anndata(
 
     # Write any dim. reds from obsm
 
-    print("Writing dimension reductions")
     write_obsms_from_adata(
         manifest=manifest,
         bundle_dir=bundle_dir,
@@ -305,9 +346,25 @@ def write_matrices_from_adata(
     adata,
     config,
 ):
+    """Given matrix slot definitions from a config file, write matrices in matrix market format
+
+    >>> egconfig = load_doc(example_config_file)
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> write_matrices_from_adata(
+    ... manifest=dict(),
+    ... bundle_dir='test_bundle',
+    ... adata=adata,
+    ... config=egconfig)
+    Writing matrices
+    .. Writing matrix from slot raw.X to subdir raw
+    .. Writing matrix from slot filtered to subdir filtered
+    .. Writing matrix from slot normalised to subdir normalised
+    """
+
+    print("Writing matrices")
     for slot_def in config["matrices"]["entries"]:
         write_matrix_from_adata(
-            manifest=manifest,
+            manifest=dict(),
             adata=adata,
             slot=slot_def["slot"],
             bundle_dir=bundle_dir,
@@ -317,6 +374,20 @@ def write_matrices_from_adata(
 
 
 def write_clusters_from_adata(manifest, bundle_dir, adata, config):
+
+    """Given obs slot definitions of clustering type from a config file, write cluster definitions to a file.
+
+    >>> egconfig = load_doc(example_config_file)
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> write_clusters_from_adata(
+    ...    manifest=dict(),
+    ...    bundle_dir='test_bundle',
+    ...    adata=adata,
+    ...    config=egconfig)
+    Writing obs (unsupervised clusterings)
+    """
+
+    print("Writing obs (unsupervised clusterings)")
 
     # Find the groups in obs that correspond to clusterings
     cluster_obs = [
@@ -355,6 +426,22 @@ def write_clusters_from_adata(manifest, bundle_dir, adata, config):
 
 def write_obsms_from_adata(manifest, bundle_dir, adata, config):
 
+    """Given obsm slot definitions from a config file, dimension resductions to files.
+
+    >>> egconfig = load_doc(example_config_file)
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> write_obsms_from_adata(
+    ...    manifest=dict(),
+    ...    bundle_dir='test_bundle',
+    ...    adata=adata,
+    ...    config=egconfig)
+    Writing dimension reductions
+    .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_3
+    .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
+    .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
+    """
+
+    print("Writing dimension reductions")
     for slot_def in config["dimension_reductions"]["entries"]:
         write_obsm_from_adata(
             manifest,
@@ -371,6 +458,18 @@ def write_obsms_from_adata(manifest, bundle_dir, adata, config):
 def write_matrix_from_adata(
     manifest, adata, slot, bundle_dir, subdir, gene_name_field="gene_name"
 ):
+    """
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> write_matrix_from_adata(
+    ...     manifest=dict(),
+    ...     adata=adata,
+    ...     slot='X',
+    ...     bundle_dir='test_bundle',
+    ...     subdir='normalised',
+    ...     gene_name_field = 'gene_name')
+    .. Writing matrix from slot X to subdir normalised"""
+
+    print(f".. Writing matrix from slot {slot} to subdir {subdir}")
 
     layer = None
     use_raw = False
@@ -389,7 +488,7 @@ def write_matrix_from_adata(
     # Create the subdir
 
     pathlib.Path(bundle_dir, subdir).mkdir(parents=True, exist_ok=True)
-    write_mtx(
+    ss.cmd_utils.write_mtx(
         adata,
         fname_prefix=f"{bundle_dir}/{subdir}/",
         use_raw=use_raw,
@@ -416,8 +515,6 @@ def write_matrix_from_adata(
         manifest, "mtx_matrix_rows", f"{subdir}/genes.mtx.gz", subdir
     )
 
-    return manifest
-
 
 # Write cell metadata, including for curation as mage-tab
 
@@ -431,8 +528,21 @@ def write_cell_metadata(
     write_premagetab=False,
     exp_name="NONAME",
 ):
+    """Given obs slot definitions from a config file, write cell metadata to a file.
 
-    print("Writing cell metdata to be used in curation")
+    >>> egconfig = load_doc(example_config_file)
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> write_cell_metadata(
+    ...    manifest=dict(),
+    ...    adata=adata,
+    ...    bundle_dir='test_bundle',
+    ...    config=egconfig,
+    ...    kind="curation",
+    ...    write_premagetab=True)
+    Writing obs metadata of kind: curation
+    """
+
+    print(f"Writing obs metadata of kind: {kind}")
     cellmeta_filename = f"{exp_name}.cell_metadata.tsv"
     presdrf_filename = f"mage-tab/{exp_name}.presdrf.txt"
     precells_filename = f"mage-tab/{exp_name}.precells.txt"
@@ -497,7 +607,21 @@ def write_cell_metadata(
 def write_obsm_from_adata(
     manifest, adata, obsm_name, embedding_type, parameterisation, bundle_dir
 ):
+    """
+    Write a single dimension reduction from the specified slot
 
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> write_obsm_from_adata(
+    ...     manifest = dict(),
+    ...     adata = adata,
+    ...     obsm_name='X_umap_neighbors_n_neighbors_3',
+    ...     embedding_type='umap',
+    ...     parameterisation='',
+    ...     bundle_dir='test_bundle')
+    .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_3
+    """
+
+    print(f".. Writing dimension reduction from slot: {obsm_name}")
     obsm_namestring = obsm_name.replace("X_", "")
     filename = f"{obsm_namestring}.tsv"
     description = f"{embedding_type}_embeddings"
@@ -524,6 +648,29 @@ def write_markers_from_adata(
     write_marker_stats=True,
     max_rank_for_stats=5,
 ):
+
+    """
+    Write marker tables with p values etc from .uns
+
+    >>> egconfig = load_doc(example_config_file)
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> write_markers_from_adata(
+    ...    manifest=dict(),
+    ...    bundle_dir='test_bundle',
+    ...    adata=adata,
+    ...    config=egconfig,
+    ...    write_marker_stats=True,
+    ...    max_rank_for_stats=5)
+    Writing markers and statistics
+    Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7', 'louvain_resolution_1.0']
+    ..calculating summary for cell grouping louvain_resolution_0.7
+    ..limiting stats report to top 5 differential genes
+    ..calculating summary for cell grouping louvain_resolution_1.0
+    ..limiting stats report to top 5 differential genes
+    """
+
+    print("Writing markers and statistics")
+
     marker_groupings_kinds = [
         (x["slot"], x["kind"])
         for x in config["cell_meta"]["entries"]
@@ -626,8 +773,54 @@ def write_markers_from_adata(
 def make_markers_summary(
     adata, layer, marker_grouping, de_table, max_rank=5, cell_group_kind=None
 ):
+    """
+    Make a table of summary statistics for a particular cell gropuing, including group-wise means.
 
-    print(f"..calculating stats for cell grouping {marker_grouping}")
+
+    >>> egconfig = load_doc(example_config_file)
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> marker_grouping = 'louvain_resolution_0.7'
+    >>> de_table = get_markers_table(adata, marker_grouping)
+    >>> calculate_summary_stats(
+    ...    adata,
+    ...    [ marker_grouping ],
+    ...    matrix='normalised')
+    Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7']
+    >>> make_markers_summary(
+    ...    adata,
+    ...    egconfig["matrices"]["load_to_scxa_db"],
+    ...    marker_grouping,
+    ...    de_table,
+    ...    max_rank=5,
+    ...    cell_group_kind='clustering')
+    ..calculating summary for cell grouping louvain_resolution_0.7
+    ..limiting stats report to top 5 differential genes
+                    gene_id  ... median_expression
+    0    ENSDARG00000017821  ...        222.825500
+    0    ENSDARG00000017821  ...          0.438023
+    1    ENSDARG00000079374  ...        537.408813
+    1    ENSDARG00000079374  ...         35.092716
+    2    ENSDARG00000045930  ...         96.161972
+    2    ENSDARG00000045930  ...          0.421609
+    3    ENSDARG00000076895  ...        205.787033
+    3    ENSDARG00000076895  ...          2.973959
+    4    ENSDARG00000070494  ...         90.376778
+    4    ENSDARG00000070494  ...          0.000000
+    100  ENSDARG00000030449  ...          2.710159
+    100  ENSDARG00000030449  ...        556.067261
+    101  ENSDARG00000051890  ...        403.266357
+    101  ENSDARG00000051890  ...       2231.194580
+    102  ENSDARG00000016153  ...          3.065661
+    102  ENSDARG00000016153  ...        281.213318
+    103  ENSDARG00000027088  ...          0.000000
+    103  ENSDARG00000027088  ...        109.589203
+    104  ENSDARG00000058538  ...        206.326599
+    104  ENSDARG00000058538  ...       2681.499023
+    <BLANKLINE>
+    [20 rows x 7 columns]
+    """
+
+    print(f"..calculating summary for cell grouping {marker_grouping}")
 
     summary_stats = (
         pd.concat(
@@ -697,8 +890,17 @@ def make_markers_summary(
     ]
 
 
-def read_file_manifest(bundle_dir):
-    manifest_file = f"{bundle_dir}/MANIFEST"
+def read_file_manifest(bundle_dir, manifest_file=None):
+    """
+    Read a manifest into a dictionary, or initialise an empty one
+
+    >>> read_file_manifest('test_bundle', manifest_file = example_manifest) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    OrderedDict([('cell_metadata', OrderedDict([('', 'NONAME.cell_metadata.tsv')])), ...
+    """
+
+    manifest_file = (
+        f"{bundle_dir}/MANIFEST" if manifest_file is None else manifest_file
+    )
     manifest = OrderedDict()
 
     if os.path.isfile(manifest_file):
@@ -716,6 +918,13 @@ def read_file_manifest(bundle_dir):
 
 
 def write_file_manifest(bundle_dir, manifest):
+    """
+    Write a manifest into a dictionary
+
+    >>> manifest = read_file_manifest(example_manifest)
+    >>> write_file_manifest('test_bundle', manifest)
+    """
+
     manifest_file = f"{bundle_dir}/MANIFEST"
 
     with open(manifest_file, "w") as fh:
@@ -727,6 +936,14 @@ def write_file_manifest(bundle_dir, manifest):
 
 
 def set_manifest_value(manifest, description, filename, parameterisation=""):
+    """
+    Add a manifest value
+
+    >>> manifest = read_file_manifest(example_manifest)
+    >>> set_manifest_value(
+    ...    manifest, "analysis_versions_file", f"foo.tsv")
+    OrderedDict([('analysis_versions_file', OrderedDict([('', 'foo.tsv')]))])
+    """
 
     if description not in manifest:
         manifest[description] = OrderedDict()
@@ -737,6 +954,20 @@ def set_manifest_value(manifest, description, filename, parameterisation=""):
 
 
 def fill_gene_names(adata, gene_name_field="gene_name"):
+    """Make sure that a gene name field is filled for all genes by filling blanks with gene IDs
+
+    >>> gene_name_field = 'gene_name'
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> genes_with_missing_names = len(list(
+    ...    adata.var_names[pd.isnull(adata.var[gene_name_field])]))
+    >>> print(f"Starting with {genes_with_missing_names} genes without names")
+    Starting with 48 genes without names
+    >>> adata = fill_gene_names(adata, gene_name_field=gene_name_field)
+    >>> genes_with_missing_names = len(list(
+    ...    adata.var_names[pd.isnull(adata.var[gene_name_field])]))
+    >>> print(f"Ending with {genes_with_missing_names} genes without names")
+    Ending with 0 genes without names
+    """
 
     if gene_name_field in adata.var.columns:
 
@@ -756,72 +987,20 @@ def fill_gene_names(adata, gene_name_field="gene_name"):
     return adata
 
 
-def write_mtx(
-    adata, fname_prefix="", var=None, obs=None, use_raw=False, use_layer=None
-):
-    """Export AnnData object to mtx formt
-    * Parameters
-        + adata : AnnData An AnnData object
-        + fname_prefix : str
-        Prefix of the exported files. If not empty and not ending with '/' or
-        '_', a '_' will be appended. Full names will be
-        <fname_prefix>matrix.mtx, <fname_prefix>genes.tsv,
-        <fname_prefix>barcodes.tsv
-        + var : list
-        A list of column names to be exported to gene table
-        + obs : list
-        A list of column names to be exported to barcode/cell table
-    """
-    if fname_prefix and not (
-        fname_prefix.endswith("/") or fname_prefix.endswith("_")
-    ):
-        fname_prefix = fname_prefix + "_"
-    if var is None:
-        var = []
-    if obs is None:
-        obs = []
-
-    import scipy.sparse as sp
-
-    if use_raw:
-        var_source = adata.raw.var
-        mat = sp.coo_matrix(adata.raw.X)
-    else:
-        var_source = adata.var
-        if use_layer is not None:
-            mat = sp.coo_matrix(adata.layers[use_layer])
-        else:
-            mat = sp.coo_matrix(adata.X)
-
-    obs = list(set(obs) & set(adata.obs.columns))
-    var = list(set(var) & set(var_source.columns))
-
-    n_obs, n_var = mat.shape
-    n_entry = len(mat.data)
-    header = (
-        "%%MatrixMarket matrix coordinate real general\n%\n{} {} {}\n".format(
-            n_var, n_obs, n_entry
-        )
-    )
-    df = pd.DataFrame(
-        {"col": mat.col + 1, "row": mat.row + 1, "data": mat.data}
-    )
-    mtx_fname = fname_prefix + "matrix.mtx"
-    gene_fname = fname_prefix + "genes.tsv"
-    barcode_fname = fname_prefix + "barcodes.tsv"
-    with open(mtx_fname, "a") as fh:
-        fh.write(header)
-        df.to_csv(fh, sep=" ", header=False, index=False)
-
-    obs_df = adata.obs[obs].reset_index(level=0)
-    obs_df.to_csv(barcode_fname, sep="\t", header=False, index=False)
-    var_df = var_source[var].reset_index(level=0)
-    if not var:
-        var_df["gene"] = var_df["index"]
-    var_df.to_csv(gene_fname, sep="\t", header=False, index=False)
-
-
 def calculate_summary_stats(adata, obs, matrix="normalised"):
+
+    """Calculate mean and median for cell groups defined by a variable in .obs
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> marker_grouping = 'louvain_resolution_0.7'
+    >>> de_table = get_markers_table(adata, marker_grouping)
+    >>> calculate_summary_stats(
+    ...    adata,
+    ...    [ marker_grouping ],
+    ...    matrix='normalised')
+    Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7']
+    """
+
     print(
         f"Calculating summary stats for {matrix} matrix, cell groups defined"
         f" by {obs}"

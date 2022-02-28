@@ -315,6 +315,7 @@ def calculate_markers(adata, config, matrix="X", use_raw=None):
     >>> egconfig = load_doc(example_config_file)
     >>> del adata.uns['markers_louvain_resolution_0.7']
     >>> matrix_for_markers = 'normalised'
+    >>> sc.pp.log1p(adata, layer = matrix_for_markers)
     >>> calculate_markers(adata, egconfig, matrix = matrix_for_markers, use_raw = False)
     Marker statistics not currently available for louvain_resolution_0.7, recalculating with Scanpy...
     """

@@ -37,6 +37,8 @@ matrices:
     normalised: True
     log_transformed: True
     scaled: False
+  
+  load_to_scxa_db: 'normalised'
     
 
 # Cell groups, slots correspond to columns in .obs. Two categories:
