@@ -494,7 +494,7 @@ def write_matrix_from_adata(
         use_raw=use_raw,
         use_layer=layer,
         var=[gene_name_field],
-        compression={"method": "gzip"}
+        compression={"method": "gzip"},
     )
 
     manifest = set_manifest_value(
