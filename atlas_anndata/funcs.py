@@ -494,16 +494,8 @@ def write_matrix_from_adata(
         use_raw=use_raw,
         use_layer=layer,
         var=[gene_name_field],
+        compression={"method": "gzip"},
     )
-
-    for filename in ["matrix.mtx", "barcodes.tsv", "genes.tsv"]:
-        subfile = f"{subdir}/{filename}"
-        filepath = f"{bundle_dir}/{subfile}"
-        with open(filepath, "rb") as f_in, gzip.open(
-            "%s.gz" % filepath, "wb"
-        ) as f_out:
-            f_out.writelines(f_in)
-        os.remove(filepath)
 
     manifest = set_manifest_value(
         manifest, "mtx_matrix_content", f"{subdir}/matrix.mtx.gz", subdir
