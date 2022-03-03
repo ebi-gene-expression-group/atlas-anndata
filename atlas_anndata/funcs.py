@@ -325,9 +325,7 @@ def make_bundle_from_anndata(
         pd.DataFrame(config["analysis_versions"]).to_csv(
             f"{bundle_dir}/software.tsv", sep="\t", index=False
         )
-        set_manifest_value(
-            manifest, "analysis_versions_file", "software.tsv"
-        )
+        set_manifest_value(manifest, "analysis_versions_file", "software.tsv")
 
     print("Writing annData file")
 
