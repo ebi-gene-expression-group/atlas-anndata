@@ -364,7 +364,7 @@ def write_matrices_from_adata(
     print("Writing matrices")
     for slot_def in config["matrices"]["entries"]:
         write_matrix_from_adata(
-            manifest=dict(),
+            manifest=manifest,
             adata=adata,
             slot=slot_def["slot"],
             bundle_dir=bundle_dir,
@@ -504,7 +504,7 @@ def write_matrix_from_adata(
         manifest, "mtx_matrix_cols", f"{subdir}/barcodes.tsv.gz", subdir
     )
     manifest = set_manifest_value(
-        manifest, "mtx_matrix_rows", f"{subdir}/genes.mtx.gz", subdir
+        manifest, "mtx_matrix_rows", f"{subdir}/genes.tsv.gz", subdir
     )
 
 
