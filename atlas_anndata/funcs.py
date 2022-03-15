@@ -325,9 +325,7 @@ def make_bundle_from_anndata(
         pd.DataFrame(config["analysis_versions"]).to_csv(
             f"{bundle_dir}/software.tsv", sep="\t", index=False
         )
-        set_manifest_value(
-            manifest, "analysis_versions_file", f"{bundle_dir}/software.tsv"
-        )
+        set_manifest_value(manifest, "analysis_versions_file", "software.tsv")
 
     print("Writing annData file")
 
@@ -364,7 +362,7 @@ def write_matrices_from_adata(
     print("Writing matrices")
     for slot_def in config["matrices"]["entries"]:
         write_matrix_from_adata(
-            manifest=dict(),
+            manifest=manifest,
             adata=adata,
             slot=slot_def["slot"],
             bundle_dir=bundle_dir,
@@ -504,7 +502,7 @@ def write_matrix_from_adata(
         manifest, "mtx_matrix_cols", f"{subdir}/barcodes.tsv.gz", subdir
     )
     manifest = set_manifest_value(
-        manifest, "mtx_matrix_rows", f"{subdir}/genes.mtx.gz", subdir
+        manifest, "mtx_matrix_rows", f"{subdir}/genes.tsv.gz", subdir
     )
 
 
