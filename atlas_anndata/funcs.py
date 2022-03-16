@@ -512,6 +512,15 @@ def write_matrix_from_adata(
         # happy for now.
 
         sample_field = config["cell_meta"].get("sample_field", "sample")
+        if not sample_field in adata.obs.columns:
+            errmsg = (
+                f"{sample_field} is not a valid obs variable, and this is a"
+                " droplet experiment. This variable required to identify"
+                " cells from different samples, please define it correctly in"
+                " the config."
+            )
+            raise Exception(errmsg)
+
         cell_to_library = pd.DataFrame(
             {"cell": adata.obs_names, "library": adata.obs[sample_field]}
         )
