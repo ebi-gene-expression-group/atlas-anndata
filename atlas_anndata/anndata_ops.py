@@ -95,9 +95,7 @@ def derive_metadata(adata, config, kind=None):
     cell_specific_metadata = None
 
     cell_metadata = adata.obs.copy()
-    sample_field = sample_field = config["cell_meta"].get(
-        "sample_field", "sample"
-    )
+    sample_field = config["cell_meta"].get("sample_field", "sample")
 
     # By default print all obs columns, but that's probably not we want in most
     # cases because of mixture of data types there (from curation, QC,
@@ -142,10 +140,10 @@ def derive_metadata(adata, config, kind=None):
             print("...deriving runs and barcodes by parsing cell IDs")
             runs, barcodes = parse_cell_ids(adata)
 
-        # If we had to derive run IDs from cell IDs, save them in the metadata
-
-        if sample_field is None:
-            cell_metadata[sample_field] = runs
+            # If we had to derive run IDs from cell IDs, save them in the
+            # metadata, including in the original anndata object, so they can
+            # beused for make cell/ library mappings
+            cell_metadata[sample_field] = adata.obs[sample_field] = runs
 
         # Add derived barcodes as a new column
         sample_colno = list(cell_metadata.columns).index(sample_field)
