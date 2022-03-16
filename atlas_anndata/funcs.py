@@ -512,7 +512,7 @@ def write_matrix_from_adata(
         # happy for now.
 
         sample_field = config["cell_meta"].get("sample_field", "sample")
-        if not sample_field in adata.obs.columns:
+        if sample_field not in adata.obs.columns:
             errmsg = (
                 f"{sample_field} is not a valid obs variable, and this is a"
                 " droplet experiment. This variable required to identify"
