@@ -504,21 +504,23 @@ def write_matrix_from_adata(
         compression={"method": "gzip"},
     )
 
-    # Store a cell/library mapping for each matrix. All matrices in an anndata
-    # (even .raw.X, layers etc) have the same obs, so its a bit redundant to
-    # write for possibly multiple matrices, but we do it to keep our pipelines
-    # happy for now.
+    if config["droplet"]:
 
-    sample_field = config["cell_meta"].get("sample_field", "sample")
-    cell_to_library = pd.DataFrame(
-        {"cell": adata.obs_names, "library": adata.obs[sample_field]}
-    )
-    cell_to_library.to_csv(
-        f"{bundle_dir}/{subdir}/cell_to_library.txt",
-        sep="\t",
-        header=False,
-        index=False,
-    )
+        # Store a cell/library mapping for each matrix. All matrices in an anndata
+        # (even .raw.X, layers etc) have the same obs, so its a bit redundant to
+        # write for possibly multiple matrices, but we do it to keep our pipelines
+        # happy for now.
+
+        sample_field = config["cell_meta"].get("sample_field", "sample")
+        cell_to_library = pd.DataFrame(
+            {"cell": adata.obs_names, "library": adata.obs[sample_field]}
+        )
+        cell_to_library.to_csv(
+            f"{bundle_dir}/{subdir}/cell_to_library.txt",
+            sep="\t",
+            header=False,
+            index=False,
+        )
 
     manifest = set_manifest_value(
         manifest, "mtx_matrix_content", f"{subdir}/matrix.mtx.gz", subdir
