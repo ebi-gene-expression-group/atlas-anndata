@@ -95,7 +95,6 @@ def derive_metadata(adata, config, kind=None):
     cell_specific_metadata = None
 
     cell_metadata = adata.obs.copy()
-    sample_field = config["cell_meta"].get("sample_field", "sample")
 
     # By default print all obs columns, but that's probably not we want in most
     # cases because of mixture of data types there (from curation, QC,
@@ -112,6 +111,8 @@ def derive_metadata(adata, config, kind=None):
         cell_metadata = cell_metadata[obs_columns]
 
     if config["droplet"]:
+
+        sample_field = config["cell_meta"].get("sample_field", "sample")
 
         # If a sample column has been supplied, then we can split the obs frame by
         # that, and determine the sample-wide metadata. We can also remove this

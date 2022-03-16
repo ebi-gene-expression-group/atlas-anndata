@@ -531,6 +531,13 @@ def write_matrix_from_adata(
             index=False,
         )
 
+        manifest = set_manifest_value(
+            manifest,
+            "cell_to_library",
+            f"{subdir}/cell_to_library.txt",
+            subdir,
+        )
+
     manifest = set_manifest_value(
         manifest, "mtx_matrix_content", f"{subdir}/matrix.mtx.gz", subdir
     )
@@ -539,9 +546,6 @@ def write_matrix_from_adata(
     )
     manifest = set_manifest_value(
         manifest, "mtx_matrix_rows", f"{subdir}/genes.tsv.gz", subdir
-    )
-    manifest = set_manifest_value(
-        manifest, "cell_to_library", f"{subdir}/cell_to_library.txt", subdir
     )
 
 
