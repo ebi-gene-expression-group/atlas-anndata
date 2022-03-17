@@ -364,6 +364,7 @@ def write_matrices_from_adata(
         write_matrix_from_adata(
             manifest=manifest,
             adata=adata,
+            config=config,
             slot=slot_def["slot"],
             bundle_dir=bundle_dir,
             subdir=slot_def["name"],
@@ -454,13 +455,21 @@ def write_obsms_from_adata(manifest, bundle_dir, adata, config):
 
 
 def write_matrix_from_adata(
-    manifest, adata, slot, bundle_dir, subdir, gene_name_field="gene_name"
+    manifest,
+    config,
+    adata,
+    slot,
+    bundle_dir,
+    subdir,
+    gene_name_field="gene_name",
 ):
     """
     >>> adata = sc.read(scxa_h5ad_test)
+    >>> egconfig = load_doc(example_config_file)
     >>> write_matrix_from_adata(
     ...     manifest=dict(),
     ...     adata=adata,
+    ...     config=egconfig,
     ...     slot='X',
     ...     bundle_dir='test_bundle',
     ...     subdir='normalised',
@@ -494,6 +503,40 @@ def write_matrix_from_adata(
         var=[gene_name_field],
         compression={"method": "gzip"},
     )
+
+    if config["droplet"]:
+
+        # Store a cell/library mapping for each matrix. All matrices in an anndata
+        # (even .raw.X, layers etc) have the same obs, so its a bit redundant to
+        # write for possibly multiple matrices, but we do it to keep our pipelines
+        # happy for now.
+
+        sample_field = config["cell_meta"].get("sample_field", "sample")
+        if sample_field not in adata.obs.columns:
+            errmsg = (
+                f"{sample_field} is not a valid obs variable, and this is a"
+                " droplet experiment. This variable required to identify"
+                " cells from different samples, please define it correctly in"
+                " the config."
+            )
+            raise Exception(errmsg)
+
+        cell_to_library = pd.DataFrame(
+            {"cell": adata.obs_names, "library": adata.obs[sample_field]}
+        )
+        cell_to_library.to_csv(
+            f"{bundle_dir}/{subdir}/cell_to_library.txt",
+            sep="\t",
+            header=False,
+            index=False,
+        )
+
+        manifest = set_manifest_value(
+            manifest,
+            "cell_to_library",
+            f"{subdir}/cell_to_library.txt",
+            subdir,
+        )
 
     manifest = set_manifest_value(
         manifest, "mtx_matrix_content", f"{subdir}/matrix.mtx.gz", subdir
