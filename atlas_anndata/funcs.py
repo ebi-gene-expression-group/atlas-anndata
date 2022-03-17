@@ -14,6 +14,7 @@ import os
 import gzip
 import math
 import csv
+import numpy as np
 
 from .anndata_config import (
     describe_matrices,
@@ -197,6 +198,7 @@ def make_bundle_from_anndata(
     magetab_dir=True,
     write_matrices=True,
     matrix_for_markers=None,
+    scxa_db_scale=1000000,
     **kwargs,
 ):
 
@@ -224,6 +226,7 @@ def make_bundle_from_anndata(
     Writing matrices
     .. Writing matrix from slot raw.X to subdir raw
     .. Writing matrix from slot filtered to subdir filtered
+    .. normalised is a matrix we'll load into SCXA, so we'll scale it to the correct factor before we write it
     .. Writing matrix from slot normalised to subdir normalised
     Writing obs (unsupervised clusterings)
     Writing markers and statistics
@@ -286,6 +289,7 @@ def make_bundle_from_anndata(
             bundle_dir=bundle_dir,
             adata=adata,
             config=config,
+            scxa_db_scale=scxa_db_scale,
         )
 
     # Write clusters (analytically derived cell groupings). For historical
@@ -343,6 +347,7 @@ def write_matrices_from_adata(
     bundle_dir,
     adata,
     config,
+    scxa_db_scale=1000000,
 ):
     """Given matrix slot definitions from a config file, write matrices in matrix market format
 
@@ -356,11 +361,25 @@ def write_matrices_from_adata(
     Writing matrices
     .. Writing matrix from slot raw.X to subdir raw
     .. Writing matrix from slot filtered to subdir filtered
+    .. normalised is a matrix we'll load into SCXA, so we'll scale it to the correct factor before we write it
     .. Writing matrix from slot normalised to subdir normalised
     """
 
     print("Writing matrices")
     for slot_def in config["matrices"]["entries"]:
+
+        # If there's a matrix destined for the SCXA DB (which would need to be
+        # count-based), apply a scaling factor if require
+
+        if slot_def["slot"] == config["matrices"]["load_to_scxa_db"]:
+            print(
+                f".. {slot_def['slot']} is a matrix we'll load into SCXA, so"
+                " we'll scale it to the correct factor before we write it"
+            )
+            scale_matrix_in_anndata(
+                adata, slot=slot_def["slot"], scale=scxa_db_scale
+            )
+
         write_matrix_from_adata(
             manifest=manifest,
             adata=adata,
@@ -452,6 +471,46 @@ def write_obsms_from_adata(manifest, bundle_dir, adata, config):
             else "",
             bundle_dir=bundle_dir,
         )
+
+
+# Scale a matrix to a common factor
+
+
+def scale_matrix(mat, scale=1000000):
+    """
+    Given a sparse matrix and a scale, derive a scaling factor from the column medians and apply scaling such that the new median matches the target.
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> print(adata.layers['normalised'][1, 2])
+    7.3389006
+    >>> # Scale up to per 10M
+    >>> adata.layers['normalised'] = scale_matrix(adata.layers['normalised'], 10000000)
+    >>> print(adata.layers['normalised'][1, 2])
+    73.38901
+    """
+    multiplier = scale / np.median(np.ravel(mat.sum(axis=1)))
+    return mat * multiplier
+
+
+def scale_matrix_in_anndata(adata, slot, scale=1000000):
+    """
+    Given an annData object and a slot name, scale back to the standard SCXA scale using the scale_matrix() function.
+
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> print(adata.layers['normalised'][1, 2])
+    7.3389006
+    >>> # Scale up to per 10M
+    >>> scale_matrix_in_anndata(adata, 'normalised', 10000000)
+    >>> print(adata.layers['normalised'][1, 2])
+    73.38901
+    """
+
+    if "raw." in slot:
+        adata.raw.X = scale_matrix(adata.raw.X, scale)
+    elif slot == "X":
+        adata.X = scale_matrix(adata.X, scale)
+    else:
+        adata.layers[slot] = scale_matrix(adata.layers[slot], scale)
 
 
 def write_matrix_from_adata(
@@ -547,6 +606,9 @@ def write_matrix_from_adata(
     manifest = set_manifest_value(
         manifest, "mtx_matrix_rows", f"{subdir}/genes.tsv.gz", subdir
     )
+
+
+# Scale a matrix
 
 
 # Write cell metadata, including for curation as mage-tab
