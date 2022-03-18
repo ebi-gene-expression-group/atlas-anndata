@@ -17,49 +17,8 @@ from .anndata_config import (
 )
 from .strings import schema_file, example_config_file, scxa_h5ad_test
 
-# Scale a matrix to a common factor
 
-
-def scale_matrix(mat, scale=1000000):
-    """
-    Given a sparse matrix and a scale, derive a scaling factor from the column medians and apply scaling such that the new median matches the target.
-
-    >>> adata = sc.read(scxa_h5ad_test)
-    >>> print(adata.layers['normalised'][1, 2])
-    7.3389006
-    >>> # Scale up to per 10M
-    >>> adata.layers['normalised'] = scale_matrix(adata.layers['normalised'], 10000000)
-    >>> print(adata.layers['normalised'][1, 2])
-    73.38901
-    """
-    multiplier = scale / np.median(np.ravel(mat.sum(axis=1)))
-    return mat * multiplier
-
-
-def scale_matrix_in_anndata(adata, slot, scale=1000000):
-    """
-    Given an annData object and a slot name, scale back to the standard SCXA scale using the scale_matrix() function.
-
-    >>> adata = sc.read(scxa_h5ad_test)
-    >>> print(adata.layers['normalised'][1, 2])
-    7.3389006
-    >>> # Scale up to per 10M
-    >>> scale_matrix_in_anndata(adata, 'normalised', 10000000)
-    >>> print(adata.layers['normalised'][1, 2])
-    73.38901
-    """
-
-    if "raw." in slot:
-        adata.raw.X = scale_matrix(adata.raw.X, scale)
-    elif slot == "X":
-        adata.X = scale_matrix(adata.X, scale)
-    else:
-        adata.layers[slot] = scale_matrix(adata.layers[slot], scale)
-
-
-def update_anndata(
-    adata, config, matrix_for_markers=None, use_raw=None, scxa_db_scale=1000000
-):
+def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
 
     """
     Check if a particular cell metadata field has an associated marker set
@@ -73,7 +32,6 @@ def update_anndata(
     >>> sc.pp.log1p(adata, layer = matrix_for_markers)
     >>> update_anndata(adata, egconfig, matrix_for_markers=matrix_for_markers, use_raw = False)
     Marker statistics not currently available for louvain_resolution_0.7, recalculating with Scanpy...
-    normalised is a matrix we'll load into SCXA, so we'll scale it to the correct factor before we write it
     """
 
     # Record the config in the object
@@ -94,22 +52,6 @@ def update_anndata(
             matrix=matrix_for_markers,
             use_raw=use_raw,
         )
-
-    # Apply any necessary matrix scaling
-
-    for slot_def in config["matrices"]["entries"]:
-
-        # If there's a matrix destined for the SCXA DB (which would need to be
-        # count-based), apply a scaling factor if require
-
-        if slot_def["slot"] == config["matrices"]["load_to_scxa_db"]:
-            print(
-                f"{slot_def['slot']} is a matrix we'll load into SCXA, so"
-                " we'll scale it to the correct factor before we write it"
-            )
-            scale_matrix_in_anndata(
-                adata, slot=slot_def["slot"], scale=scxa_db_scale
-            )
 
 
 def overwrite_obs_with_magetab(adata, config, magetab_dir):
