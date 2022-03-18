@@ -377,7 +377,10 @@ def write_matrices_from_adata(
                 " we'll scale it to the correct factor before we write it"
             )
             scale_matrix_in_anndata(
-                adata, slot=slot_def["slot"], scale=scxa_db_scale
+                adata,
+                slot=slot_def["slot"],
+                reverse_transform=slot_def["log_transformed"],
+                scale=scxa_db_scale,
             )
 
         write_matrix_from_adata(
@@ -476,9 +479,9 @@ def write_obsms_from_adata(manifest, bundle_dir, adata, config):
 # Scale a matrix to a common factor
 
 
-def scale_matrix(mat, scale=1000000):
+def scale_matrix(mat, scale=1000000, reverse_transform=False):
     """
-    Given a sparse matrix and a scale, derive a scaling factor from the column medians and apply scaling such that the new median matches the target.
+    Given a sparse matrix and a scale, derive a scaling factor from the column medians and apply scaling such that the new median matches the target. If data are log tranformed reverse that first.
 
     >>> adata = sc.read(scxa_h5ad_test)
     >>> print(adata.layers['normalised'][1, 2])
@@ -488,11 +491,15 @@ def scale_matrix(mat, scale=1000000):
     >>> print(adata.layers['normalised'][1, 2])
     73.38901
     """
+    if reverse_transform:
+        mat = np.expm1(mat)
     multiplier = scale / np.median(np.ravel(mat.sum(axis=1)))
     return mat * multiplier
 
 
-def scale_matrix_in_anndata(adata, slot, scale=1000000):
+def scale_matrix_in_anndata(
+    adata, slot, reverse_transform=False, scale=1000000
+):
     """
     Given an annData object and a slot name, scale back to the standard SCXA scale using the scale_matrix() function.
 
@@ -506,11 +513,17 @@ def scale_matrix_in_anndata(adata, slot, scale=1000000):
     """
 
     if "raw." in slot:
-        adata.raw.X = scale_matrix(adata.raw.X, scale)
+        adata.raw.X = scale_matrix(
+            adata.raw.X, scale, reverse_transform=reverse_transform
+        )
     elif slot == "X":
-        adata.X = scale_matrix(adata.X, scale)
+        adata.X = scale_matrix(
+            adata.X, scale, reverse_transform=reverse_transform
+        )
     else:
-        adata.layers[slot] = scale_matrix(adata.layers[slot], scale)
+        adata.layers[slot] = scale_matrix(
+            adata.layers[slot], scale, reverse_transform=reverse_transform
+        )
 
 
 def write_matrix_from_adata(
