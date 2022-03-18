@@ -55,6 +55,16 @@ from scanpy_scripts.click_utils import CommaSeparatedText
         " and can be edited in the bundle later."
     ),
 )
+@click.option(
+    "--scxa-db-scale",
+    type=click.INT,
+    default=1000000,
+    help=(
+        "To what overall scale should cell counts be multiplied for the SCXA"
+        " DB? A multiplier will be calculated from this value and the median"
+        " cell-wise sum in the given matrix."
+    ),
+)
 @click.option("--magetab-dir", type=click.Path(dir_okay=True), default=None)
 def make_bundle(*args, write_premagetab=False, magetab_dir=None, **kwargs):
 
