@@ -507,7 +507,7 @@ def scale_matrix_in_anndata(
     >>> print(adata.layers['normalised'][1, 2])
     7.3389006
     >>> # Scale up to per 10M
-    >>> scale_matrix_in_anndata(adata, 'normalised', 10000000)
+    >>> scale_matrix_in_anndata(adata, slot = 'normalised', scale = 10000000)
     >>> print(adata.layers['normalised'][1, 2])
     73.38901
     """
