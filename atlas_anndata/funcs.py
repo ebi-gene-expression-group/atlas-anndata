@@ -1,5 +1,6 @@
 import pkg_resources
 import yaml
+import json
 import sys
 import re
 import scanpy as sc
@@ -469,7 +470,9 @@ def write_obsms_from_adata(manifest, bundle_dir, adata, config):
             adata,
             obsm_name=slot_def["slot"],
             embedding_type=slot_def["kind"],
-            parameterisation=list(slot_def["parameters"].values())[0]
+            parameterisation=json.dumps(
+                [{key: val} for key, val in slot_def["parameters"].items()]
+            )
             if len(slot_def["parameters"]) > 0
             else "",
             bundle_dir=bundle_dir,
@@ -998,7 +1001,7 @@ def make_markers_summary(
     ]
 
 
-def read_file_manifest(bundle_dir, manifest_file=None):
+def read_file_manifest(bundle_dir=None, manifest_file=None):
     """
     Read a manifest into a dictionary, or initialise an empty one
 
@@ -1029,7 +1032,7 @@ def write_file_manifest(bundle_dir, manifest):
     """
     Write a manifest into a dictionary
 
-    >>> manifest = read_file_manifest(example_manifest)
+    >>> manifest = read_file_manifest(manifest_file = example_manifest)
     >>> write_file_manifest('test_bundle', manifest)
     """
 
