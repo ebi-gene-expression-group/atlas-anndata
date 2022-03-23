@@ -73,7 +73,7 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
             "slot",
             config["matrices"]["load_to_scxa_db"],
         )
-        config["matrices"][scxa_load_matrix_index][
+        config["matrices"]["entries"][scxa_load_matrix_index][
             "name"
         ] = load_to_dbxa_matrix_name
 
