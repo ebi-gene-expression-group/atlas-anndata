@@ -15,7 +15,12 @@ from .util import (
 from .anndata_config import (
     load_doc,
 )
-from .strings import schema_file, example_config_file, scxa_h5ad_test
+from .strings import (
+    schema_file,
+    example_config_file,
+    scxa_h5ad_test,
+    load_to_dbxa_matrix_name,
+)
 
 
 def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
@@ -52,6 +57,23 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
             matrix=matrix_for_markers,
             use_raw=use_raw,
         )
+
+    # Currently the SCXA production setup assumes that the matrix we actually load to DB is called 'filtered_normalised'. That should be improved, but for now reset the name accordingly.
+
+    if "load_to_scxa_db" in config["matrices"]:
+
+        def find(lst, key, value):
+            for i, dic in enumerate(lst):
+                if dic[key] == value:
+                    return i
+            return -1
+
+        scxa_load_matrix_index = find(
+            config["matrices"], "slot", config["matrices"]["load_to_scxa_db"]
+        )
+        config["matrices"][scxa_load_matrix_index][
+            "name"
+        ] = load_to_dbxa_matrix_name
 
 
 def overwrite_obs_with_magetab(adata, config, magetab_dir):

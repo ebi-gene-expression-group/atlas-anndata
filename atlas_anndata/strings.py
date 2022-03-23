@@ -4,6 +4,8 @@ MISSING = "FILL ME"
 MISSING_STRING = f"{MISSING} with a string"
 MISSING_BOOLEAN = f"{MISSING} with a boolean"
 
+load_to_dbxa_matrix_name = "filtered_normalised"
+
 schema_file = pkg_resources.resource_filename(
     "atlas_anndata", "config_schema.yaml"
 )
