@@ -69,7 +69,9 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
             return -1
 
         scxa_load_matrix_index = find(
-            config["matrices"], "slot", config["matrices"]["load_to_scxa_db"]
+            config["matrices"]["entries"],
+            "slot",
+            config["matrices"]["load_to_scxa_db"],
         )
         config["matrices"][scxa_load_matrix_index][
             "name"
