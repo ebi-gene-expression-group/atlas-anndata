@@ -21,3 +21,4 @@ example_manifest = pkg_resources.resource_filename(
 scxa_h5ad_test = pkg_resources.resource_filename(
     "atlas_anndata", "data/E-MTAB-6077.project.h5ad"
 )
+workflow_dir = pkg_resources.resource_filename("atlas_anndata", "snakemake")

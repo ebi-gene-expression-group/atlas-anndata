@@ -5,22 +5,25 @@ wildcard_constraints:
 
 # Parse params
 
-exp_id = config.get('exp_id')
+exp_name = config.get('exp_name')
 scxa_meta_branch=config.get("scxa_metadata_branch")
-out_file = config.get('out_file')
-exp_type = re.search('E-(.+?)\-.*', exp_id).group(1)
+out_dir = config.get('out_dir')
+exp_type = re.search('E-(.+?)\-.*', exp_name).group(1)
 
 # Set the global variables we'll need to run
 
 rule all:
     input:
-        cell_metadata=f"{exp_id}.metadata.tsv"
+        condensed_sdrf=f"{exp_name}.condensed-sdrf.tsv"
+        cell_metadata=f"{exp_name}.metadata.tsv"
     output:
-        final_output=out_file
+        condensed_sdrf=f"{out_dir}/{exp_name}.condensed-sdrf.tsv",
+        cell_metadata=f"{out_dir}/{exp_name}.cell_metadata.tsv"
     
     shell:
     """
-    cp {cell_metadata} {final_output}
+    cp {input.cell_metadata} {output.cell_metadata}
+    cp {input.condensed_sdrf} {output.condensed_sdrf}
     """
 
 rule git_clone:
@@ -51,17 +54,17 @@ rule condense_sdrf:
         meta_repo="scxa-metadata.pulled",
         
     output:
-        condensed=temp("{prefix}/{exp_id}.condensed-sdrf.tsv"),
-        zoomifications=temp("{prefix}/{exp_id}-zoomifications-log.tsv")
+        condensed=temp("{prefix}/{exp_name}.condensed-sdrf.tsv"),
+        zoomifications=temp("{prefix}/{exp_name}-zoomifications-log.tsv")
     
     params:
         zooma_exclusions="git/atlas-config/zooma_exclusions.yml",
-        idf="git/scxa-metadata/%s/{exp_id}/{exp_id}.idf.txt" % exp_type,
-        sdrf="git/scxa-metadata/%s/{exp_id}/{exp_id}.sdrf.txt" % exp_type,
+        idf="git/scxa-metadata/%s/{exp_name}/{exp_name}.idf.txt" % exp_type,
+        sdrf="git/scxa-metadata/%s/{exp_name}/{exp_name}.sdrf.txt" % exp_type,
 
     shell:
         """
-        single_cell_condensed_sdrf.sh -e {wildcards.exp_id} -f {params.idf} -o {wildcards.prefix} -z {params.zooma_exclusions}
+        single_cell_condensed_sdrf.sh -e {wildcards.exp_name} -f {params.idf} -o {wildcards.prefix} -z {params.zooma_exclusions}
         """
 
 rule unmelt_condensed_sdrf:

@@ -43,7 +43,38 @@ from scanpy_scripts.click_utils import CommaSeparatedText
     "--write-premagetab",
     default=False,
     is_flag=True,
-    help="Should we write pre-magetab files for curation by SCXA team?",
+    help=(
+        "Should we write pre-magetab files for curation by SCXA team? If not,"
+        " we assume curation is done, and we will look for curated metadata"
+        " via the the exp_name parameter"
+    ),
+)
+@click.option(
+    "--conda-prefix",
+    type=click.Path(dir_okay=True),
+    default=None,
+    help=(
+        "Specify a Conda directory to be used for environments when running"
+        " Snakemake workflows."
+    ),
+)
+@click.option(
+    "--scxa-metadata-branch",
+    required=True,
+    default="master",
+    help=(
+        "When searching the SCXA metadata repository for curation for this"
+        " experiment, which branch should we use?"
+    ),
+)
+@click.option(
+    "--sanitize-columns",
+    default=True,
+    is_flag=True,
+    help=(
+        "When adding data from curation into the anndata object, should we"
+        " remove the Comment, Characteristic etc?"
+    ),
 )
 @click.option(
     "--exp-name",
@@ -65,8 +96,7 @@ from scanpy_scripts.click_utils import CommaSeparatedText
         " cell-wise sum in the given matrix."
     ),
 )
-@click.option("--magetab-dir", type=click.Path(dir_okay=True), default=None)
-def make_bundle(*args, write_premagetab=False, magetab_dir=None, **kwargs):
+def make_bundle(*args, **kwargs):
 
     """Build a bundle directory compatible with Single Cell Expression Atlas
     (SCXA) build proceseses
@@ -82,24 +112,7 @@ def make_bundle(*args, write_premagetab=False, magetab_dir=None, **kwargs):
 
     from atlas_anndata import make_bundle_from_anndata
 
-    if (magetab_dir is None and not write_premagetab) or (
-        magetab_dir is not None and write_premagetab
-    ):
-        errmsg = (
-            "You need to use either --write-premagetab OR --magetab-dir,"
-            " indicating a first run to discover metadata for curation by the"
-            " SCXA team, or a second run passing MAGE-TAB format curated"
-            " metadata for inclusion in the bundle. Do not specify neither, or"
-            " both."
-        )
-        raise Exception(errmsg)
-
-    make_bundle_from_anndata(
-        *args,
-        write_premagetab=write_premagetab,
-        magetab_dir=magetab_dir,
-        **kwargs
-    )
+    make_bundle_from_anndata(*args, **kwargs)
 
 
 if __name__ == "__main__":

@@ -196,7 +196,9 @@ def make_bundle_from_anndata(
     max_rank_for_stats=5,
     exp_name="NONAME",
     write_premagetab=False,
-    magetab_dir=True,
+    conda_prefix=None,
+    scxa_metadata_branch="master",
+    sanitize_columns=True,
     write_matrices=True,
     matrix_for_markers=None,
     scxa_db_scale=1000000,
@@ -263,11 +265,21 @@ def make_bundle_from_anndata(
     update_anndata(adata, config, matrix_for_markers=matrix_for_markers)
 
     # If curation has been done and MAGE-TAB metadata is available, then we'll
-    # re-write the metadata of the object
+    # re-write the metadata of the object. If not, we output 'pre' magetab for curation
 
-    if magetab_dir:
+    if not write_premagetab:
         adata = overwrite_obs_with_magetab(
-            adata=adata, config=config, magetab_dir=magetab_dir
+            adata=adata,
+            config=config,
+            exp_name=exp_name,
+            conda_prefix=conda_prefix,
+            scxa_metadata_branch=scxa_metadata_branch,
+            santize_columns=sanitize_columns,
+            bundle_dir=bundle_dir,
+        )
+
+        set_manifest_value(
+            manifest, "condensed_sdrf", f"{exp_name}.condensed-sdrf.tsv"
         )
 
     # Write cell metadata (curated cell info)

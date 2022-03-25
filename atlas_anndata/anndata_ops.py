@@ -3,6 +3,7 @@ Operations applied to annData objects, mostly extracting information in various
 ways.
 """
 
+import os
 import scanpy as sc
 import re
 import numpy as np
@@ -20,6 +21,7 @@ from .strings import (
     example_config_file,
     scxa_h5ad_test,
     load_to_dbxa_matrix_name,
+    workflow_dir,
 )
 
 
@@ -78,15 +80,71 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
         ] = load_to_dbxa_matrix_name
 
 
-def overwrite_obs_with_magetab(adata, config, magetab_dir):
+def overwrite_obs_with_magetab(
+    adata,
+    config,
+    exp_name,
+    conda_prefix,
+    scxa_metadata_branch,
+    sanitize_columns=False,
+    bundle_dir=None,
+):
     """Overwrite the cell metadata for the anndata object with curated MAGE-TAB"""
 
-    # Read the MAGE-TAB data, and probably remote [Comment] etc
+    import snakemake
 
-    # For droplet, merge in sample-wise metdata, ensure order is as current
-    # obs, and replace the obs dataframe.
+    # Run the SDRF condense process to ontologise terms etc, and 'unmelt' to produce
 
-    # For non-droplet, just synch the data frame and replace the obs
+    result = snakemake.snakemake(
+        f"{workflow_dir}/cell_metadata_from_magetab/workflow/Snakefile",
+        config={
+            "exp_name": exp_name,
+            "out_dir": bundle_dir,
+            "scxa_metadata_branch": scxa_metadata_branch,
+        },
+        use_conda=True,
+        conda_frontend="mamba",
+        cores=1,
+        printshellcmds=True,
+        conda_prefix=conda_prefix,
+    )
+
+    # Add any new columns from curation to the observations
+
+    if result:
+        newmeta = pd.read_csv(
+            f"{exp_name}.cell_metadata.tsv", sep="\t", index_col=0
+        )
+        if all([x in adata.obs_names for x in list(newmeta.index)]):
+
+            # It's possible curation has removed some cells
+
+            adata = adata[newmeta.index]
+            if sanitize_columns:
+                newmeta.columns = [
+                    re.sub(
+                        r"(Characteristic|Factor|Comment)[ ]*\[([^\]]+)\]",
+                        "\\2",
+                        x,
+                    ).replace(" ", "_")
+                    for x in newmeta.columns
+                ]
+
+            new_columns = [
+                x for x in newmeta.columns if x not in adata.obs.columns
+            ]
+            adata.obs = pd.concat([adata.obs, newmeta[new_columns]], axis=1)
+
+        else:
+            errmsg = (
+                f"Some cell names for {exp_name} from curation don't exist"
+                " in the anndata"
+            )
+            raise Exception(errmsg)
+
+    else:
+        errmsg = f"Was unable to produce metadata frame for {exp_name}"
+        raise Exception(errmsg)
 
     return adata
 
