@@ -1,0 +1,77 @@
+import re
+
+wildcard_constraints:
+    repo = "[^\/]+",
+
+# Parse params
+
+exp_id = config.get('exp_id')
+scxa_meta_branch=config.get("scxa_metadata_branch")
+out_file = config.get('out_file')
+exp_type = re.search('E-(.+?)\-.*', exp_id).group(1)
+
+# Set the global variables we'll need to run
+
+rule all:
+    input:
+        cell_metadata=f"{exp_id}.metadata.tsv"
+    output:
+        final_output=out_file
+    
+    shell:
+    """
+    cp {cell_metadata} {final_output}
+    """
+
+rule git_clone:
+    output:
+        temp(directory("git/{repo}/.git"))
+    shell:
+        """
+        if [ -d "git/{wildcards.repo}" ]; then
+            git clone git@gitlab.ebi.ac.uk:ebi-gene-expression/{wildcards.repo}.git git/{wildcards.repo}
+        fi
+        if [ "{wildcards.repo}" = 'scxa-metadata' ]; then
+            pushd git/{wildcards.repo} > /dev/null && git checkout {scxa_meta_branch} && git pull && popd > /dev/null
+        fi
+        """
+
+rule git_pull:
+    input:
+        "git/{repo}/.git"
+    output:
+        temp(touch("{repo}.pulled"))
+    shell: "pushd git/{wildcards.repo} && git pull && popd"  
+
+rule condense_sdrf:
+    conda:
+        'envs/atlas-experiment-metadata.yml'
+    input:
+        config_repo="atlas-config.pulled",
+        meta_repo="scxa-metadata.pulled",
+        
+    output:
+        condensed=temp("{prefix}/{exp_id}.condensed-sdrf.tsv"),
+        zoomifications=temp("{prefix}/{exp_id}-zoomifications-log.tsv")
+    
+    params:
+        zooma_exclusions="git/atlas-config/zooma_exclusions.yml",
+        idf="git/scxa-metadata/%s/{exp_id}/{exp_id}.idf.txt" % exp_type,
+        sdrf="git/scxa-metadata/%s/{exp_id}/{exp_id}.sdrf.txt" % exp_type,
+
+    shell:
+        """
+        single_cell_condensed_sdrf.sh -e {wildcards.exp_id} -f {params.idf} -o {wildcards.prefix} -z {params.zooma_exclusions}
+        """
+
+rule unmelt_condensed_sdrf:
+    conda:
+        'envs/atlas-experiment-metadata.yml'
+    input:
+        condensed="{prefix}.condensed-sdrf.tsv"
+    output:
+        metadata=temp("{prefix}.metadata.tsv")
+    shell:
+        "unmelt_condensed.R -i {input.condensed} -o {output.metadata} --retain-types --has-ontology"
+
+    

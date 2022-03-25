@@ -1,0 +1,8 @@
+name: atlas-experiment-metadata
+channels:
+  - defaults
+  - conda-forge
+  - bioconda
+  - ebi-gene-expression-group
+dependencies:
+  - atlas-experiment-metadata=0.1.2

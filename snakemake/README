@@ -1,0 +1,3 @@
+Place workflows in here for running any parts of the production processes that might be necessary. At time of writing this was just the SDRF condense stuff, but I can imagine it being much more widely useful should this package be tied more closely into SCXA production processes.
+
+- J Manning, March '22
