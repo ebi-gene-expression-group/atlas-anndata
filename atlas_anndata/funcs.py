@@ -274,7 +274,7 @@ def make_bundle_from_anndata(
             exp_name=exp_name,
             conda_prefix=conda_prefix,
             scxa_metadata_branch=scxa_metadata_branch,
-            santize_columns=sanitize_columns,
+            sanitize_columns=sanitize_columns,
             bundle_dir=bundle_dir,
         )
 
