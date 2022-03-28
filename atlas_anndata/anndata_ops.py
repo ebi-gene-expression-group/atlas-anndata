@@ -83,6 +83,7 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
 def overwrite_obs_with_magetab(
     adata,
     config,
+    manifest,
     exp_name,
     conda_prefix,
     scxa_metadata_branch,
@@ -93,27 +94,34 @@ def overwrite_obs_with_magetab(
 
     import snakemake
 
-    # Run the SDRF condense process to ontologise terms etc, and 'unmelt' to produce
+    # Run the SDRF condense process to ontologise terms etc, and 'unmelt' to produce ontologised cell metadata
+
+    snakemake_config = {
+        "exp_name": exp_name,
+        "out_dir": bundle_dir,
+        "scxa_metadata_branch": scxa_metadata_branch,
+    }
+    if "cell_to_library" in manifest:
+        snakemake_config["cell_to_library"] = (
+            f"{bundle_dir}/%s" % list(manifest["cell_to_library"].values())[0]
+        )
 
     result = snakemake.snakemake(
         f"{workflow_dir}/cell_metadata_from_magetab/workflow/Snakefile",
-        config={
-            "exp_name": exp_name,
-            "out_dir": bundle_dir,
-            "scxa_metadata_branch": scxa_metadata_branch,
-        },
+        config=snakemake_config,
         use_conda=True,
         conda_frontend="mamba",
         cores=1,
         printshellcmds=True,
         conda_prefix=conda_prefix,
+        forceall=True,
     )
 
     # Add any new columns from curation to the observations
 
     if result:
         newmeta = pd.read_csv(
-            f"{exp_name}.cell_metadata.tsv", sep="\t", index_col=0
+            f"{bundle_dir}/{exp_name}.cell_metadata.tsv", sep="\t", index_col=0
         )
         if all([x in adata.obs_names for x in list(newmeta.index)]):
 

@@ -14,56 +14,45 @@ exp_type = re.search('E-(.+?)\-.*', exp_name).group(1)
 
 rule all:
     input:
-        condensed_sdrf=f"{exp_name}.condensed-sdrf.tsv"
-        cell_metadata=f"{exp_name}.metadata.tsv"
-    output:
         condensed_sdrf=f"{out_dir}/{exp_name}.condensed-sdrf.tsv",
         cell_metadata=f"{out_dir}/{exp_name}.cell_metadata.tsv"
-    
-    shell:
-    """
-    cp {input.cell_metadata} {output.cell_metadata}
-    cp {input.condensed_sdrf} {output.condensed_sdrf}
-    """
 
 rule git_clone:
     output:
-        temp(directory("git/{repo}/.git"))
+        temp(directory("git/{repo}"))
     shell:
         """
-        if [ -d "git/{wildcards.repo}" ]; then
-            git clone git@gitlab.ebi.ac.uk:ebi-gene-expression/{wildcards.repo}.git git/{wildcards.repo}
-        fi
+        branch=''
         if [ "{wildcards.repo}" = 'scxa-metadata' ]; then
-            pushd git/{wildcards.repo} > /dev/null && git checkout {scxa_meta_branch} && git pull && popd > /dev/null
+            branch=" -b {scxa_meta_branch}"            
+        fi
+
+        if [ ! -d "git/{wildcards.repo}" ]; then
+            git clone --depth 1 git@gitlab.ebi.ac.uk:ebi-gene-expression/{wildcards.repo}.git git/{wildcards.repo}$branch
         fi
         """
-
-rule git_pull:
-    input:
-        "git/{repo}/.git"
-    output:
-        temp(touch("{repo}.pulled"))
-    shell: "pushd git/{wildcards.repo} && git pull && popd"  
 
 rule condense_sdrf:
     conda:
         'envs/atlas-experiment-metadata.yml'
     input:
-        config_repo="atlas-config.pulled",
-        meta_repo="scxa-metadata.pulled",
-        
+        config_repo="git/atlas-config",
+        meta_repo="git/scxa-metadata",
     output:
-        condensed=temp("{prefix}/{exp_name}.condensed-sdrf.tsv"),
+        condensed="{prefix}/{exp_name}.condensed-sdrf.tsv",
         zoomifications=temp("{prefix}/{exp_name}-zoomifications-log.tsv")
     
     params:
         zooma_exclusions="git/atlas-config/zooma_exclusions.yml",
         idf="git/scxa-metadata/%s/{exp_name}/{exp_name}.idf.txt" % exp_type,
         sdrf="git/scxa-metadata/%s/{exp_name}/{exp_name}.sdrf.txt" % exp_type,
+        cell_to_library=config.get('cell_to_library')
 
     shell:
         """
+        if [ "{params.cell_to_library}" != 'None' ]; then
+            cp {params.cell_to_library} git/scxa-metadata/{exp_type}/{wildcards.exp_name}
+        fi
         single_cell_condensed_sdrf.sh -e {wildcards.exp_name} -f {params.idf} -o {wildcards.prefix} -z {params.zooma_exclusions}
         """
 
@@ -73,7 +62,7 @@ rule unmelt_condensed_sdrf:
     input:
         condensed="{prefix}.condensed-sdrf.tsv"
     output:
-        metadata=temp("{prefix}.metadata.tsv")
+        metadata="{prefix}.cell_metadata.tsv"
     shell:
         "unmelt_condensed.R -i {input.condensed} -o {output.metadata} --retain-types --has-ontology"
 

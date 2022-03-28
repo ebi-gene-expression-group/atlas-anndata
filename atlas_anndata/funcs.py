@@ -263,6 +263,17 @@ def make_bundle_from_anndata(
     # Make any required updates to the annData object
 
     update_anndata(adata, config, matrix_for_markers=matrix_for_markers)
+    
+    # Write matrices
+
+    if write_matrices:
+        write_matrices_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_dir,
+            adata=adata,
+            config=config,
+            scxa_db_scale=scxa_db_scale,
+        )
 
     # If curation has been done and MAGE-TAB metadata is available, then we'll
     # re-write the metadata of the object. If not, we output 'pre' magetab for curation
@@ -271,6 +282,7 @@ def make_bundle_from_anndata(
         adata = overwrite_obs_with_magetab(
             adata=adata,
             config=config,
+            manifest=manifest,
             exp_name=exp_name,
             conda_prefix=conda_prefix,
             scxa_metadata_branch=scxa_metadata_branch,
@@ -293,17 +305,6 @@ def make_bundle_from_anndata(
         exp_name=exp_name,
         write_premagetab=write_premagetab,
     )
-
-    # Write matrices
-
-    if write_matrices:
-        write_matrices_from_adata(
-            manifest=manifest,
-            bundle_dir=bundle_dir,
-            adata=adata,
-            config=config,
-            scxa_db_scale=scxa_db_scale,
-        )
 
     # Write clusters (analytically derived cell groupings). For historical
     # reasons this is written differently to e.g. curated metadata
