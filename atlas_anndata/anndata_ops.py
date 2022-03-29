@@ -138,6 +138,12 @@ def overwrite_obs_with_magetab(
                     for x in newmeta.columns
                 ]
 
+            # The above can create duplicated column names where things are
+            # present for more than one of Comment, Factor and Characteristic.
+            # So we de-duplicate based on the sanitized column names
+
+            newmeta = newmeta.loc[:, ~newmeta.columns.duplicated()]
+
             new_columns = [
                 x for x in newmeta.columns if x not in adata.obs.columns
             ]

@@ -263,7 +263,7 @@ def make_bundle_from_anndata(
     # Make any required updates to the annData object
 
     update_anndata(adata, config, matrix_for_markers=matrix_for_markers)
-    
+
     # Write matrices
 
     if write_matrices:
