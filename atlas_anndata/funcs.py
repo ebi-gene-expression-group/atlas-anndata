@@ -225,12 +225,12 @@ def make_bundle_from_anndata(
     ..Checking for gene_meta gene_name
     annData file successfully validated against config ...
     All marker sets detailed in config present and correct
-    Writing obs metadata of kind: curation
     Writing matrices
     .. Writing matrix from slot raw.X to subdir raw
     .. Writing matrix from slot filtered to subdir filtered
     .. normalised is a matrix we'll load into SCXA, so we'll scale it to the correct factor before we write it
     .. Writing matrix from slot normalised to subdir filtered_normalised
+    Writing obs metadata of kind: curation
     Writing obs (unsupervised clusterings)
     Writing markers and statistics
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7', 'louvain_resolution_1.0']
