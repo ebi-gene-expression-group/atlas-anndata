@@ -1,0 +1,69 @@
+import re
+
+wildcard_constraints:
+    repo = "[^\/]+",
+
+# Parse params
+
+exp_name = config.get('exp_name')
+scxa_meta_branch=config.get("scxa_metadata_branch")
+out_dir = config.get('out_dir')
+exp_type = re.search('E-(.+?)\-.*', exp_name).group(1)
+
+# Set the global variables we'll need to run
+
+rule all:
+    input:
+        condensed_sdrf=f"{out_dir}/{exp_name}.condensed-sdrf.tsv",
+        cell_metadata=f"{out_dir}/{exp_name}.cell_metadata.tsv"
+
+rule git_clone:
+    output:
+        temp(directory("git/{repo}"))
+    shell:
+        """
+        branch=''
+        if [ "{wildcards.repo}" = 'scxa-metadata' ]; then
+            branch=" -b {scxa_meta_branch}"            
+        fi
+
+        if [ ! -d "git/{wildcards.repo}" ]; then
+            git clone --depth 1 git@gitlab.ebi.ac.uk:ebi-gene-expression/{wildcards.repo}.git git/{wildcards.repo}$branch
+        fi
+        """
+
+rule condense_sdrf:
+    conda:
+        'envs/atlas-experiment-metadata.yml'
+    input:
+        config_repo="git/atlas-config",
+        meta_repo="git/scxa-metadata",
+    output:
+        condensed="{prefix}/{exp_name}.condensed-sdrf.tsv",
+        zoomifications=temp("{prefix}/{exp_name}-zoomifications-log.tsv")
+    
+    params:
+        zooma_exclusions="git/atlas-config/zooma_exclusions.yml",
+        idf="git/scxa-metadata/%s/{exp_name}/{exp_name}.idf.txt" % exp_type,
+        sdrf="git/scxa-metadata/%s/{exp_name}/{exp_name}.sdrf.txt" % exp_type,
+        cell_to_library=config.get('cell_to_library')
+
+    shell:
+        """
+        if [ "{params.cell_to_library}" != 'None' ]; then
+            cp {params.cell_to_library} git/scxa-metadata/{exp_type}/{wildcards.exp_name}
+        fi
+        single_cell_condensed_sdrf.sh -e {wildcards.exp_name} -f {params.idf} -o {wildcards.prefix} -z {params.zooma_exclusions}
+        """
+
+rule unmelt_condensed_sdrf:
+    conda:
+        'envs/atlas-experiment-metadata.yml'
+    input:
+        condensed="{prefix}.condensed-sdrf.tsv"
+    output:
+        metadata="{prefix}.cell_metadata.tsv"
+    shell:
+        "unmelt_condensed.R -i {input.condensed} -o {output.metadata} --retain-types --has-ontology"
+
+    

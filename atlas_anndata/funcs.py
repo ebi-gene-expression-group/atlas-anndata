@@ -196,7 +196,9 @@ def make_bundle_from_anndata(
     max_rank_for_stats=5,
     exp_name="NONAME",
     write_premagetab=False,
-    magetab_dir=True,
+    conda_prefix=None,
+    scxa_metadata_branch="master",
+    sanitize_columns=True,
     write_matrices=True,
     matrix_for_markers=None,
     scxa_db_scale=1000000,
@@ -223,12 +225,12 @@ def make_bundle_from_anndata(
     ..Checking for gene_meta gene_name
     annData file successfully validated against config ...
     All marker sets detailed in config present and correct
-    Writing obs metadata of kind: curation
     Writing matrices
     .. Writing matrix from slot raw.X to subdir raw
     .. Writing matrix from slot filtered to subdir filtered
     .. normalised is a matrix we'll load into SCXA, so we'll scale it to the correct factor before we write it
     .. Writing matrix from slot normalised to subdir filtered_normalised
+    Writing obs metadata of kind: curation
     Writing obs (unsupervised clusterings)
     Writing markers and statistics
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7', 'louvain_resolution_1.0']
@@ -262,12 +264,34 @@ def make_bundle_from_anndata(
 
     update_anndata(adata, config, matrix_for_markers=matrix_for_markers)
 
-    # If curation has been done and MAGE-TAB metadata is available, then we'll
-    # re-write the metadata of the object
+    # Write matrices
 
-    if magetab_dir:
+    if write_matrices:
+        write_matrices_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_dir,
+            adata=adata,
+            config=config,
+            scxa_db_scale=scxa_db_scale,
+        )
+
+    # If curation has been done and MAGE-TAB metadata is available, then we'll
+    # re-write the metadata of the object. If not, we output 'pre' magetab for curation
+
+    if not write_premagetab:
         adata = overwrite_obs_with_magetab(
-            adata=adata, config=config, magetab_dir=magetab_dir
+            adata=adata,
+            config=config,
+            manifest=manifest,
+            exp_name=exp_name,
+            conda_prefix=conda_prefix,
+            scxa_metadata_branch=scxa_metadata_branch,
+            sanitize_columns=sanitize_columns,
+            bundle_dir=bundle_dir,
+        )
+
+        set_manifest_value(
+            manifest, "condensed_sdrf", f"{exp_name}.condensed-sdrf.tsv"
         )
 
     # Write cell metadata (curated cell info)
@@ -281,17 +305,6 @@ def make_bundle_from_anndata(
         exp_name=exp_name,
         write_premagetab=write_premagetab,
     )
-
-    # Write matrices
-
-    if write_matrices:
-        write_matrices_from_adata(
-            manifest=manifest,
-            bundle_dir=bundle_dir,
-            adata=adata,
-            config=config,
-            scxa_db_scale=scxa_db_scale,
-        )
 
     # Write clusters (analytically derived cell groupings). For historical
     # reasons this is written differently to e.g. curated metadata
