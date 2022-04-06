@@ -7,6 +7,17 @@ from atlas_anndata import validate_anndata_with_config
 @click.command()
 @click.argument("anndata_config", type=click.Path(exists=True))
 @click.argument("anndata_file", type=click.Path(exists=True))
+@click.option(
+    "--allow-incomplete",
+    default=False,
+    is_flag=True,
+    help=(
+        "Should we allow the config to contain missing info? This is"
+        " appropriate for the first round of bundle creation where the"
+        " pre-magetab is being derived and some info is yet to be gathered"
+        " from authors"
+    ),
+)
 def validate_anndata(*args, **kwargs):
 
     """Validate a YAML format config file describing an annData file for

@@ -22,6 +22,7 @@ from .strings import (
     scxa_h5ad_test,
     load_to_dbxa_matrix_name,
     workflow_dir,
+    MISSING,
 )
 
 
@@ -209,6 +210,8 @@ def derive_metadata(adata, config, kind=None):
     if config["droplet"]:
 
         sample_field = config["cell_meta"].get("sample_field", "sample")
+        if MISSING in sample_field:
+            sample_field = "sample"
 
         # If a sample column has been supplied, then we can split the obs frame by
         # that, and determine the sample-wide metadata. We can also remove this
@@ -242,11 +245,12 @@ def derive_metadata(adata, config, kind=None):
             # beused for make cell/ library mappings
             cell_metadata[sample_field] = adata.obs[sample_field] = runs
 
-        # Add derived barcodes as a new column
-        sample_colno = list(cell_metadata.columns).index(sample_field)
-        cell_metadata.insert(
-            (sample_colno + 1), column="barcode", value=barcodes
-        )
+        if "barcode" not in cell_metadata.columns:
+            # Add derived barcodes as a new column
+            sample_colno = list(cell_metadata.columns).index(sample_field)
+            cell_metadata.insert(
+                (sample_colno + 1), column="barcode", value=barcodes
+            )
 
         # Split cell metadata by run ID and create run-wise metadata with
         # any invariant value across all cells of a run

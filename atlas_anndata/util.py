@@ -48,7 +48,7 @@ def clusterings_to_ks(adata, obs_names):
     )
 
 
-def select_clusterings(adata, clusters, atlas_style=True):
+def select_clusterings(adata, clusterings, atlas_style=True):
 
     """
     Pick clusterings to use. This is a wrapper around clusterings_to_ks(), for
@@ -66,19 +66,23 @@ def select_clusterings(adata, clusters, atlas_style=True):
     {'louvain_resolution_0.7': 2, 'louvain_resolution_1.0': 5}
     """
 
-    clusterings = list(
-        dict(
-            sorted(
-                dict(
-                    zip(
-                        clusters,
-                        [abs(1 - float(c.split("_")[-1])) for c in clusters],
-                    )
-                ).items(),
-                key=lambda x: x[1],
-            )
-        ).keys()
-    )
+    if atlas_style:
+        clusterings = list(
+            dict(
+                sorted(
+                    dict(
+                        zip(
+                            clusterings,
+                            [
+                                abs(1 - float(c.split("_")[-1]))
+                                for c in clusterings
+                            ],
+                        )
+                    ).items(),
+                    key=lambda x: x[1],
+                )
+            ).keys()
+        )
 
     clustering_to_nclust = clusterings_to_ks(adata, clusterings)
 
@@ -207,7 +211,7 @@ def slot_kind_from_name(slot_type, slot_name):
     search_map = {}
 
     if slot_type == "dimension_reductions":
-        kind = f"{kind}: 'pca', 'tsne', 'umap', 'scanvi'"
+        kind = "other"
         search_map = {
             ".*pca": "pca",
             ".*umap": "umap",

@@ -79,7 +79,7 @@ properties:
                             type: boolean
                         kind: 
                             type: string
-                            pattern: "^(tsne|umap|pca|scanvi)$"
+                            pattern: "^(tsne|umap|pca|scanvi|other)$"
                         parameters:
                             type: object
                     required: [ slot, kind ]
