@@ -9,6 +9,7 @@ from .strings import (
     example_config_file,
     example_software_file,
     scxa_h5ad_test,
+    MISSING,
 )
 
 
@@ -120,7 +121,9 @@ def obs_markers(adata, obs):
         return False
 
 
-def check_slot(adata, slot_type, slot_name):
+def check_slot(
+    adata, slot_type, slot_name, raise_error=True, allow_incomplete=False
+):
 
     """Check for a slot in an anndata object
 
@@ -158,7 +161,11 @@ def check_slot(adata, slot_type, slot_name):
         errmsg = f"{slot_type} slot type not recognised"
         check_result = False
 
-    if not check_result:
+    if (
+        raise_error
+        and not check_result
+        and not (MISSING in slot_name and allow_incomplete)
+    ):
         raise Exception(errmsg)
 
     return check_result

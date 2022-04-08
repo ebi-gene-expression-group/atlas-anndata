@@ -46,7 +46,10 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
     adata.uns["scxa_config"] = config
 
     # Reset the var names the the specified gene ID field
-    if config["gene_meta"]["id_field"] != "index":
+    if (
+        config["gene_meta"]["id_field"] != "index"
+        and MISSING not in config["gene_meta"]["id_field"]
+    ):
         adata.var.set_index(config["gene_meta"]["id_field"], inplace=True)
 
     # Calcluate markers where necessary

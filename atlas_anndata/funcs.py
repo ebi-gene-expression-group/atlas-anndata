@@ -102,24 +102,43 @@ def validate_anndata_with_config(
     for slot_type in ["matrices", "cell_meta", "dimension_reductions"]:
         if slot_type in config:
             for slot_def in config[slot_type]["entries"]:
-                check_slot(adata, slot_type, slot_def["slot"])
+                check_slot(
+                    adata,
+                    slot_type,
+                    slot_def["slot"],
+                    allow_incomplete=allow_incomplete,
+                )
 
     # Check that scxa load matrix (if specified) is present
 
-    if (
-        "load_to_scxa_db" in config["matrices"]
-        and MISSING not in config["matrices"]["load_to_scxa_db"]
-    ):
-        check_slot(adata, "matrices", config["matrices"]["load_to_scxa_db"])
+    if "load_to_scxa_db" in config["matrices"]:
+        check_slot(
+            adata,
+            "matrices",
+            config["matrices"]["load_to_scxa_db"],
+            allow_incomplete=allow_incomplete,
+        )
 
-    check_slot(adata, "gene_meta", config["gene_meta"]["id_field"])
-    check_slot(adata, "gene_meta", config["gene_meta"]["name_field"])
+    check_slot(
+        adata,
+        "gene_meta",
+        config["gene_meta"]["id_field"],
+        allow_incomplete=allow_incomplete,
+    )
+    check_slot(
+        adata,
+        "gene_meta",
+        config["gene_meta"]["name_field"],
+        allow_incomplete=allow_incomplete,
+    )
 
-    if (
-        "sample_field" in config["cell_meta"]
-        and MISSING not in config["cell_meta"]["sample_field"]
-    ):
-        check_slot(adata, "cell_meta", config["cell_meta"]["sample_field"])
+    if "sample_field" in config["cell_meta"]:
+        check_slot(
+            adata,
+            "cell_meta",
+            config["cell_meta"]["sample_field"],
+            allow_incomplete=allow_incomplete,
+        )
 
     # Check that some necessary version info is present
 

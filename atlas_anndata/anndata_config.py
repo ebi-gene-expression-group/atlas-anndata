@@ -215,10 +215,10 @@ def describe_genemeta(
 
     return {
         "name_field": gene_name_field
-        if check_slot(adata, "gene_meta", gene_name_field)
+        if check_slot(adata, "gene_meta", gene_name_field, raise_error=False)
         else MISSING_STRING,
         "id_field": gene_id_field
-        if check_slot(adata, "gene_meta", gene_id_field)
+        if check_slot(adata, "gene_meta", gene_id_field, raise_error=False)
         else MISSING_STRING,
     }
 
