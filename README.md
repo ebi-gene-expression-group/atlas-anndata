@@ -1,3 +1,7 @@
+[![PyPI version fury.io](https://badge.fury.io/py/atlas-anndata.svg)](https://pypi.python.org/pypi/atlas-anndata/)
+[![Build Status](https://api.travis-ci.com/ebi-gene-expression-group/atlas-anndata.svg?branch=develop)](https://travis-ci.org/ebi-gene-expression-group/atlas-anndata)
+
+
 # Single-cell Expression Atlas - compatible analysis bundles from annData files
 
 In the Gene Expression team at the EBI we produce [Single Cell Expression Atlas](https://www.ebi.ac.uk/gxa/sc/home) (SCXA), using a consistent pipeline to analyse data from the raw FASTQ files and produce the results visibile in the SCXA interface. Intermediate in this process is an 'analysis bundle' whereby the subset of results needed are gathered and formatted correctly for loading into our databases and indices. 
