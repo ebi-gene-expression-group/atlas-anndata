@@ -2,7 +2,18 @@
 
 This is an example walkthrough for processing externally analysed data for Single Cell Expression Atlas. For a more generic desrcription of tools and options as well as install instructions see the [README](README.md).
 
-## Dataset
+## Process outline
+
+The steps required to produce a bundle suitable are:
+
+ 1. Process the annData file to determine what information is available. Store a summary of this information in a YAML-format configuration file. 
+ 2. Generate bundle files (1st time) based on the starting config files in 1. 
+ 3. Examine the cell metadata files and use that information to refine configuration related to cell metadata. This includes flagging fields that should be included in the pre-MAGE-TAB files, and for droplet experiments, finding the field that separates cells from different libraries. Also check the gene metadata at this stage, to check that Ensembl gene identifiers are available.
+ 4. Generate bundle files (2nd time) based on configuration refined in 3.. This will include pre-MAGE-TAB files suitable as a basis for curation.
+ 5. Undertake curation. This will include standard curation processes used for SCXA-analysed experiments, and additional steps to derive further information we need, such as the nature of any included matrices and reference transcriptome used. At this point the YAML-format configuration should be complete, and should be included in the scxa-metadata repo.
+ 6. Generate the final bundle suitable for loading into SCXA.
+
+## Test dataset
 
 We'll we working with an annData file available from the GTEx portal [here](https://gtexportal.org/home/datasets) ([dataset link](https://storage.googleapis.com/gtex_analysis_v9/snrna_seq_data/GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad)).
 
@@ -12,7 +23,9 @@ We'll we working with an annData file available from the GTEx portal [here](http
 make_starting_config_from_anndata --droplet GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad gtex_sc.yaml
 ```
 
-This will produce a starting point of a config file that will eventually be used to make a final SCXA bundle. It has a number of 'FILL ME' tags indicating things that need your input.
+This will produce a starting point of a config file that will eventually be used to make a final SCXA bundle. 
+
+Fields flagged with 'FILL ME' will ultimately need completion, or else removeal of their parent entries, but that will occur in later steps.
 
 ## Step 2: first bundle run: write basic info
 
@@ -22,7 +35,7 @@ Without any editing of the config file we can output the basic info:
 make_bundle_from_anndata --write-premagetab GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad gtex_sc.yaml gtex_sc_bundle
 ``` 
 
-The output is like:
+The output bundle directory is structured like:
 
 ```
 tree gtex_sc_bundle/
@@ -46,7 +59,41 @@ gtex_sc_bundle/
 2 directories, 13 files
 ```
 
-## Step 3: Look at cellmetadata and refine configuration for curation
+## Step 3: refine configuration for curation
+
+#### Identify correct gene ID and gene name fields
+
+For SCXA we need the gene symbol and ID fields. 
+
+In the configuration step the package will try to guess the gene identifier and symbol fields. In this case we got:
+
+```
+gene_meta:
+  id_field: index
+  name_field: gene_name
+```
+
+** Note: 'index' is just the row names of the gene annotation data in the anndata object **
+
+Have a look at the `reference/gene_annotation.txt` file from the bundle dir:
+
+```
+gene_id	gene_ids	Chromosome	Source	Start	End	Strand	gene_name	gene_source	gene_biotype	gene_length	gene_coding_length	Approved symbol	Approved nameStatus	Previous symbols	Alias symbols	gene_include
+FO538757.2	ENSG00000279457	1	ensembl	184922	200322	-	FO538757.2	ensembl	protein_coding	15400	1982	WASH9P	WAS protein family homolog 9, pseudogene	Approved	nan	nan	True
+SAMD11	ENSG00000187634	1	ensembl_havana	924879	944581	+	SAMD11	ensembl_havana	protein_coding	19702	3214	SAMD11	sterile alpha motif domain containing 11	Approved	nan	MGC45873	True
+NOC2L	ENSG00000188976	1	ensembl_havana	944203	959309	-	NOC2L	ensembl_havana	protein_coding	15106	5539	NOC2L	NOC2 like nucleolar associated transcriptional repressor	Approved	nan	DKFZP564C186, NET7, NET15, NIR, PPP1R112	True
+KLHL17	ENSG00000187961	1	ensembl_havana	960586	965715	+	KLHL17	ensembl_havana	protein_coding	5129	3395	KLHL17	kelch like family member 17	Approved	nan	nan	True
+```
+
+We can see that the guess has not worked here- the gene metadata clearly has gene symbols rather than IDs in its row names. Not great practice. In any case we need to edit the config to use the `gene_ids` field:
+
+```
+gene_meta:
+  id_field: gene_ids
+  name_field: gene_name
+```
+
+**Important:** We only work with datasets keyed by Ensembl gene identifier. If there are no ENSG gene identifiers in this dataframe then we cannot currently work with these data so this dataset must be declined.
 
 ### Sample field
 
@@ -203,38 +250,6 @@ The pre-MAGE-TAB can now be used to start curation by the curation team.
 ### Gather other missing info needed before final bundle creation
 
 Unlike our standard submission pathways, for pre-analysed data we need additional information before the data are ingested for SCXA, which must currently be provided via the configuration YAML. The completed config from the following steps should be added to the `scxa-metadata` alongside the MAGE-TAB files.
-
-#### Identify correct gene ID and gene name fields
-
-For SCXA we need the gene symbol and ID fields. **We only work with datasets keyed by Ensembl gene identifier**.
-
-In the configuration step the package will try to guess the gene identifier and symbol fields. In this case we got:
-
-```
-gene_meta:
-  id_field: index
-  name_field: gene_name
-```
-
-** Note: 'index' is just the row names of the gene annotation data in the anndata object **
-
-Have a look at the `reference/gene_annotation.txt` file from the bundle dir:
-
-```
-gene_id	gene_ids	Chromosome	Source	Start	End	Strand	gene_name	gene_source	gene_biotype	gene_length	gene_coding_length	Approved symbol	Approved nameStatus	Previous symbols	Alias symbols	gene_include
-FO538757.2	ENSG00000279457	1	ensembl	184922	200322	-	FO538757.2	ensembl	protein_coding	15400	1982	WASH9P	WAS protein family homolog 9, pseudogene	Approved	nan	nan	True
-SAMD11	ENSG00000187634	1	ensembl_havana	924879	944581	+	SAMD11	ensembl_havana	protein_coding	19702	3214	SAMD11	sterile alpha motif domain containing 11	Approved	nan	MGC45873	True
-NOC2L	ENSG00000188976	1	ensembl_havana	944203	959309	-	NOC2L	ensembl_havana	protein_coding	15106	5539	NOC2L	NOC2 like nucleolar associated transcriptional repressor	Approved	nan	DKFZP564C186, NET7, NET15, NIR, PPP1R112	True
-KLHL17	ENSG00000187961	1	ensembl_havana	960586	965715	+	KLHL17	ensembl_havana	protein_coding	5129	3395	KLHL17	kelch like family member 17	Approved	nan	nan	True
-```
-
-We can see that the guess has not worked here- the gene metadata clearly has gene symbols rather than IDs in its row names. Not great practice. In any case we need to edit the config to use the `gene_ids` field:
-
-```
-gene_meta:
-  id_field: gene_ids
-  name_field: gene_name
-```
 
 #### Information on reference and software versions etc
 
