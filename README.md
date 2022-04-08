@@ -88,12 +88,10 @@ The steps required to produce a bundle  are:
 
 ### 0. Install this package
 
-This repository contains a python packages which should be used to facilitate production of a bundle. We'll get it on PyPi/ Conda soon, for now install like:
+This repository contains a python packages which should be used to facilitate production of a bundle. Install it from PyPi like:
 
 ```
-git clone git@github.com:ebi-gene-expression-group/atlas-anndata.git
-cd atlas-anndata
-pip install .
+pip install atlas-anndata
 ```
 
 ### 1. Produce a YAML format annData description file
