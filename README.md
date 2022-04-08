@@ -72,6 +72,18 @@ marker_stats	tpm_filtered_stats.csv	tpm_filtered
 cluster_memberships	clusters_for_bundle.txt
 ```
 
+## Process outline
+
+The steps required to produce a bundle  are:
+
+ 1. Process the annData file to determine what information is available. Store a summary of this information in a YAML-format configuration file. 
+ 2. Generate bundle files (1st time) based on the starting config files in 1. 
+ 3. Examine the cell metadata files and use that information to refine configuration related to cell metadata. This includes flagging fields that should be included in the pre-MAGE-TAB files, and for droplet experiments, finding the field that separates cells from different libraries. Also check the gene metadata at this stage, to check that Ensembl gene identifiers are available.
+ 4. Generate bundle files (2nd time) based on configuration refined in 3.. This will include pre-MAGE-TAB files suitable as a basis for curation.
+ 5. Undertake curation. This will include standard curation processes used for SCXA-analysed experiments, and additional steps to derive further information we need, such as the nature of any included matrices and reference transcriptome used. At this point the YAML-format configuration should be complete, and should be included in the scxa-metadata repo.
+ 6. Generate the final bundle suitable for loading into SCXA.
+
+
 ## Protocol: producing an analysis bundle from arbitrary annData files
 
 ### 0. Install this package
