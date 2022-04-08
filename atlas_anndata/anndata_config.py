@@ -149,7 +149,7 @@ def describe_cellmeta(
     if len(cluster_obs) > 0:
         cluster_obs = list(
             select_clusterings(
-                adata, clusters=cluster_obs, atlas_style=atlas_style
+                adata, clusterings=cluster_obs, atlas_style=atlas_style
             ).keys()
         )
 
@@ -215,10 +215,10 @@ def describe_genemeta(
 
     return {
         "name_field": gene_name_field
-        if check_slot(adata, "gene_meta", gene_name_field)
+        if check_slot(adata, "gene_meta", gene_name_field, raise_error=False)
         else MISSING_STRING,
         "id_field": gene_id_field
-        if check_slot(adata, "gene_meta", gene_id_field)
+        if check_slot(adata, "gene_meta", gene_id_field, raise_error=False)
         else MISSING_STRING,
     }
 
@@ -278,7 +278,7 @@ def load_doc(filename):
             print(exc)
 
 
-def validate_config(config):
+def validate_config(config, allow_incomplete=False):
 
     """Validate a config against our schema
 
@@ -304,9 +304,13 @@ def validate_config(config):
 
     if MISSING in str(config):
         errmsg = (
-            f"Please complete all {MISSING} fields in config before trying to"
-            " make a bundle."
+            f"WARNING: {MISSING} fields are present in the config. Please make"
+            " sure this is resolved before running this script for the final"
+            " time."
         )
-        raise Exception(errmsg)
+        if allow_incomplete:
+            print(errmsg)
+        else:
+            raise Exception(errmsg)
 
     return True

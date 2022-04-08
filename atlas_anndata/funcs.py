@@ -45,10 +45,14 @@ from .strings import (
     example_manifest,
     example_config_file,
     scxa_h5ad_test,
+    MISSING,
 )
+from jsonschema import validate
 
 
-def validate_anndata_with_config(anndata_config, anndata_file):
+def validate_anndata_with_config(
+    anndata_config, anndata_file, allow_incomplete=False
+):
 
     """Validate an anndata against a config
 
@@ -78,7 +82,7 @@ def validate_anndata_with_config(anndata_config, anndata_file):
 
     # First validate the anndata descripton file against the YAML schema
 
-    config_status = validate_config(config)
+    config_status = validate_config(config, allow_incomplete=allow_incomplete)
 
     if config_status:
         print("Config YAML file successfully validated")
@@ -98,18 +102,43 @@ def validate_anndata_with_config(anndata_config, anndata_file):
     for slot_type in ["matrices", "cell_meta", "dimension_reductions"]:
         if slot_type in config:
             for slot_def in config[slot_type]["entries"]:
-                check_slot(adata, slot_type, slot_def["slot"])
+                check_slot(
+                    adata,
+                    slot_type,
+                    slot_def["slot"],
+                    allow_incomplete=allow_incomplete,
+                )
 
     # Check that scxa load matrix (if specified) is present
 
     if "load_to_scxa_db" in config["matrices"]:
-        check_slot(adata, "matrices", config["matrices"]["load_to_scxa_db"])
+        check_slot(
+            adata,
+            "matrices",
+            config["matrices"]["load_to_scxa_db"],
+            allow_incomplete=allow_incomplete,
+        )
 
-    check_slot(adata, "gene_meta", config["gene_meta"]["id_field"])
-    check_slot(adata, "gene_meta", config["gene_meta"]["name_field"])
+    check_slot(
+        adata,
+        "gene_meta",
+        config["gene_meta"]["id_field"],
+        allow_incomplete=allow_incomplete,
+    )
+    check_slot(
+        adata,
+        "gene_meta",
+        config["gene_meta"]["name_field"],
+        allow_incomplete=allow_incomplete,
+    )
 
     if "sample_field" in config["cell_meta"]:
-        check_slot(adata, "cell_meta", config["cell_meta"]["sample_field"])
+        check_slot(
+            adata,
+            "cell_meta",
+            config["cell_meta"]["sample_field"],
+            allow_incomplete=allow_incomplete,
+        )
 
     # Check that some necessary version info is present
 
@@ -230,6 +259,7 @@ def make_bundle_from_anndata(
     .. Writing matrix from slot filtered to subdir filtered
     .. normalised is a matrix we'll load into SCXA, so we'll scale it to the correct factor before we write it
     .. Writing matrix from slot normalised to subdir filtered_normalised
+    Writing var(gene) metadata
     Writing obs metadata of kind: curation
     Writing obs (unsupervised clusterings)
     Writing markers and statistics
@@ -247,7 +277,9 @@ def make_bundle_from_anndata(
 
     # Make sure the config matches the schema and anndata
 
-    config, adata = validate_anndata_with_config(anndata_config, anndata_file)
+    config, adata = validate_anndata_with_config(
+        anndata_config, anndata_file, allow_incomplete=write_premagetab
+    )
 
     # Clear and create the output location
 
@@ -294,6 +326,14 @@ def make_bundle_from_anndata(
             manifest, "condensed_sdrf", f"{exp_name}.condensed-sdrf.tsv"
         )
 
+    # Write gene metadata
+
+    write_gene_metadata(
+        manifest=manifest,
+        adata=adata,
+        bundle_dir=bundle_dir,
+    )
+
     # Write cell metadata (curated cell info)
 
     write_cell_metadata(
@@ -338,22 +378,30 @@ def make_bundle_from_anndata(
 
     # Write software table
 
-    print("Writing analysis versions table")
-    if len(config["analysis_versions"]) > 0:
+    if len(config["analysis_versions"]) > 0 and MISSING not in str(
+        config["analysis_versions"]
+    ):
+        print("Writing analysis versions table")
         pd.DataFrame(config["analysis_versions"]).to_csv(
             f"{bundle_dir}/software.tsv", sep="\t", index=False
         )
         set_manifest_value(manifest, "analysis_versions_file", "software.tsv")
 
     print("Writing annData file")
-
     adata_filename = f"{exp_name}.project.h5ad"
     adata.write(f"{bundle_dir}/{adata_filename}")
     set_manifest_value(manifest, "project_file", adata_filename)
 
     # Write the final file manifest
 
-    write_file_manifest(bundle_dir, manifest)
+    if MISSING in str(config):
+        print(
+            "WARNING: Not writing manifest for bundle from incomplete config."
+            " For final bundle creation complete (or remove) all"
+            f" {MISSING} entries from the config and re-run"
+        )
+    else:
+        write_file_manifest(bundle_dir, manifest)
 
 
 def write_matrices_from_adata(
@@ -382,10 +430,19 @@ def write_matrices_from_adata(
     print("Writing matrices")
     for slot_def in config["matrices"]["entries"]:
 
+        # Skip any incomplete matrix entries.
+
+        if MISSING in str(slot_def):
+            print(f"Skipping incomplete matrix entry for {slot_def['slot']}")
+            continue
+
         # If there's a matrix destined for the SCXA DB (which would need to be
         # count-based), apply a scaling factor if require
 
-        if slot_def["slot"] == config["matrices"]["load_to_scxa_db"]:
+        if (
+            "load_to_scxa_db" in config["matrices"]
+            and slot_def["slot"] == config["matrices"]["load_to_scxa_db"]
+        ):
             print(
                 f".. {slot_def['slot']} is a matrix we'll load into SCXA, so"
                 " we'll scale it to the correct factor before we write it"
@@ -478,18 +535,21 @@ def write_obsms_from_adata(manifest, bundle_dir, adata, config):
 
     print("Writing dimension reductions")
     for slot_def in config["dimension_reductions"]["entries"]:
-        write_obsm_from_adata(
-            manifest,
-            adata,
-            obsm_name=slot_def["slot"],
-            embedding_type=slot_def["kind"],
-            parameterisation=json.dumps(
-                [{key: val} for key, val in slot_def["parameters"].items()]
+        if MISSING in str(slot_def):
+            print(f"Skipping incomplete obsm entry for {slot_def['slot']}")
+        else:
+            write_obsm_from_adata(
+                manifest,
+                adata,
+                obsm_name=slot_def["slot"],
+                embedding_type=slot_def["kind"],
+                parameterisation=json.dumps(
+                    [{key: val} for key, val in slot_def["parameters"].items()]
+                )
+                if len(slot_def["parameters"]) > 0
+                else "",
+                bundle_dir=bundle_dir,
             )
-            if len(slot_def["parameters"]) > 0
-            else "",
-            bundle_dir=bundle_dir,
-        )
 
 
 # Scale a matrix to a common factor
@@ -637,7 +697,39 @@ def write_matrix_from_adata(
     )
 
 
-# Scale a matrix
+def write_gene_metadata(
+    manifest,
+    adata,
+    bundle_dir,
+):
+    print("Writing var(gene) metadata")
+
+    genemeta_filename = f"{bundle_dir}/reference/gene_annotation.txt"
+    pathlib.Path(f"{bundle_dir}/reference").mkdir(parents=True, exist_ok=True)
+
+    nonmeta_var_patterns = [
+        "mean",
+        "counts",
+        "n_cells",
+        "highly_variable",
+        "dispersion",
+    ]
+
+    nonmeta_cols = [
+        x
+        for x in adata.var.columns
+        if any([y in x for y in nonmeta_var_patterns])
+    ]
+    genemeta_cols = [x for x in adata.var.columns if x not in nonmeta_cols]
+
+    adata.var[genemeta_cols].to_csv(
+        genemeta_filename,
+        sep="\t",
+        header=True,
+        index=True,
+        index_label="gene_id",
+    )
+    manifest = set_manifest_value(manifest, "cell_metadata", genemeta_filename)
 
 
 # Write cell metadata, including for curation as mage-tab

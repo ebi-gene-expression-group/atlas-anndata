@@ -9,6 +9,7 @@ from .strings import (
     example_config_file,
     example_software_file,
     scxa_h5ad_test,
+    MISSING,
 )
 
 
@@ -48,7 +49,7 @@ def clusterings_to_ks(adata, obs_names):
     )
 
 
-def select_clusterings(adata, clusters, atlas_style=True):
+def select_clusterings(adata, clusterings, atlas_style=True):
 
     """
     Pick clusterings to use. This is a wrapper around clusterings_to_ks(), for
@@ -66,19 +67,23 @@ def select_clusterings(adata, clusters, atlas_style=True):
     {'louvain_resolution_0.7': 2, 'louvain_resolution_1.0': 5}
     """
 
-    clusterings = list(
-        dict(
-            sorted(
-                dict(
-                    zip(
-                        clusters,
-                        [abs(1 - float(c.split("_")[-1])) for c in clusters],
-                    )
-                ).items(),
-                key=lambda x: x[1],
-            )
-        ).keys()
-    )
+    if atlas_style:
+        clusterings = list(
+            dict(
+                sorted(
+                    dict(
+                        zip(
+                            clusterings,
+                            [
+                                abs(1 - float(c.split("_")[-1]))
+                                for c in clusterings
+                            ],
+                        )
+                    ).items(),
+                    key=lambda x: x[1],
+                )
+            ).keys()
+        )
 
     clustering_to_nclust = clusterings_to_ks(adata, clusterings)
 
@@ -116,7 +121,9 @@ def obs_markers(adata, obs):
         return False
 
 
-def check_slot(adata, slot_type, slot_name):
+def check_slot(
+    adata, slot_type, slot_name, raise_error=True, allow_incomplete=False
+):
 
     """Check for a slot in an anndata object
 
@@ -154,7 +161,11 @@ def check_slot(adata, slot_type, slot_name):
         errmsg = f"{slot_type} slot type not recognised"
         check_result = False
 
-    if not check_result:
+    if (
+        raise_error
+        and not check_result
+        and not (MISSING in slot_name and allow_incomplete)
+    ):
         raise Exception(errmsg)
 
     return check_result
@@ -207,7 +218,7 @@ def slot_kind_from_name(slot_type, slot_name):
     search_map = {}
 
     if slot_type == "dimension_reductions":
-        kind = f"{kind}: 'pca', 'tsne', 'umap', 'scanvi'"
+        kind = "other"
         search_map = {
             ".*pca": "pca",
             ".*umap": "umap",
