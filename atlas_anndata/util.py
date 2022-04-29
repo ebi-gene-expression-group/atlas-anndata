@@ -204,7 +204,7 @@ def extract_parameterisation(slot_type, slot_name, atlas_style=False):
     return parameters
 
 
-def slot_kind_from_name(slot_type, slot_name):
+def slot_kind_from_name(slot_type, slot_name, adata=None):
 
     """
     Try to infer the kind/sub-type of a slot by comparing to known patterns
@@ -250,7 +250,17 @@ def slot_kind_from_name(slot_type, slot_name):
 
     for kind_pattern in search_map.keys():
         if re.match(r"{}".format(kind_pattern), slot_name.lower()):
-            kind = search_map[kind_pattern]
+
+            # Just a little check to make sure an obs column is actually categorical before flagging it as clustering
+
+            if (
+                slot_type == "cell_meta"
+                and search_map[kind_pattern] == "clustering"
+                and adata.obs[slot_name].dtype.name != "category"
+            ):
+                kind = "analysis"
+            else:
+                kind = search_map[kind_pattern]
             break
 
     return kind

@@ -110,7 +110,7 @@ def describe_cellmeta(
 
         obs_entry = {
             "slot": obs,
-            "kind": slot_kind_from_name("cell_meta", obs),
+            "kind": slot_kind_from_name("cell_meta", obs, adata),
             "parameters": extract_parameterisation(
                 "cell_meta", obs, atlas_style
             ),
@@ -186,7 +186,7 @@ def describe_dimreds(adata, atlas_style=False, droplet=False):
     for obsm in adata.obsm.keys():
         obsm_entry = {
             "slot": obsm,
-            "kind": slot_kind_from_name("dimension_reductions", obsm),
+            "kind": slot_kind_from_name("dimension_reductions", obsm, adata),
             "parameters": extract_parameterisation(
                 "dimension_reductions", obsm, atlas_style
             ),
