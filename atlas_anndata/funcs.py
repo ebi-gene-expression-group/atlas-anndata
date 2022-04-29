@@ -492,6 +492,7 @@ def write_clusters_from_adata(manifest, bundle_dir, adata, config):
         x["default"]
         for x in config["cell_meta"]["entries"]
         if x["kind"] == "clustering"
+        and adata.obs[x["slot"]].dtype.name == "category"
     ]
 
     # Map clusters to k values
