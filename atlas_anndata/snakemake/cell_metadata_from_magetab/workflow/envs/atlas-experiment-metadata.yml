@@ -5,4 +5,4 @@ channels:
   - bioconda
   - ebi-gene-expression-group
 dependencies:
-  - atlas-experiment-metadata=0.1.2
+  - atlas-experiment-metadata>=0.1.5
