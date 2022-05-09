@@ -160,17 +160,18 @@ def validate_anndata_with_config(
     return (config, adata)
 
 
-def make_starting_config_from_anndata(
+def initialise_bundle(
     anndata_file,
-    anndata_config,
+    exp_name,
+    bundle_dir=os.getcwd(),
     atlas_style=False,
-    exp_name=None,
     droplet=False,
     gene_id_field="index",
     gene_name_field="gene_name",
     sample_field="sample",
     default_clustering=None,
     analysis_versions_file=None,
+    **kwargs,
 ):
 
     """
@@ -181,6 +182,20 @@ def make_starting_config_from_anndata(
     ..Checking for gene_meta gene_name
     ..Checking for gene_meta index
     """
+    # Clear and create the output location
+
+    bundle_subdir = f"{bundle_dir}/{exp_name}"
+
+    if Path(bundle_subdir).is_dir():
+        shutil.rmtree(bundle_subdir)
+
+    pathlib.Path(bundle_subdir).mkdir(parents=True)
+
+    # Initialise the manifest
+
+    manifest = read_file_manifest(bundle_dir)
+
+    # Read and describe the anndata file
 
     adata = sc.read(anndata_file)
 
@@ -213,6 +228,20 @@ def make_starting_config_from_anndata(
             analysis_versions_file=analysis_versions_file,
         ),
     }
+
+    # Write copy of annData to the bundle
+
+    adata_filename = f"{exp_name}.project.h5ad"
+    adata.write(f"{bundle_subdir}/{adata_filename}")
+    set_manifest_value(manifest, "project_file", adata_filename)
+
+    # Write the manifest
+
+    write_file_manifest(bundle_subdir, manifest)
+
+    # Write the config
+
+    anndata_config = f"{bundle_dir}/{exp_name}/anndata-config.yaml"
 
     with open(anndata_config, "w") as file:
         yaml.dump(config, file)
@@ -280,13 +309,6 @@ def make_bundle_from_anndata(
     config, adata = validate_anndata_with_config(
         anndata_config, anndata_file, allow_incomplete=write_premagetab
     )
-
-    # Clear and create the output location
-
-    if Path(bundle_dir).is_dir():
-        shutil.rmtree(bundle_dir)
-
-    pathlib.Path(f"{bundle_dir}").mkdir(parents=True)
 
     # Initialise the manifest
 
