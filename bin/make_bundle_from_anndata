@@ -6,8 +6,20 @@ from scanpy_scripts.click_utils import CommaSeparatedText
 
 @click.command()
 @click.argument("anndata_file", type=click.Path(exists=True))
-@click.argument("anndata_config", type=click.Path(exists=True))
 @click.argument("bundle_dir", type=click.Path(dir_okay=True))
+@click.argument(
+    "step",
+    type=click.Choice(
+        ["review", "init_magetab", "inject_magetab", "final"],
+        case_sensitive=False,
+    ),
+)
+@click.option(
+    "--anndata-config", 
+    type=click.Path(exists=True)
+    default=None,
+    help=("Specify a bundle configuration YAML file. By default, this will be read from the bundle directory.")
+)
 @click.option(
     "--max-rank-for-stats",
     type=click.INT,

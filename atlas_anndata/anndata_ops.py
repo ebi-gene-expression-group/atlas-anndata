@@ -83,7 +83,6 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
             "name"
         ] = load_to_dbxa_matrix_name
 
-
 def overwrite_obs_with_magetab(
     adata,
     config,
@@ -151,6 +150,10 @@ def overwrite_obs_with_magetab(
             new_columns = [
                 x for x in newmeta.columns if x not in adata.obs.columns
             ]
+
+            # Make a description of the new fields for the YAML here
+
+
             adata.obs = pd.concat([adata.obs, newmeta[new_columns]], axis=1)
 
         else:

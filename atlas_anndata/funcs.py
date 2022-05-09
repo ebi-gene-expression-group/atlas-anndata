@@ -49,7 +49,6 @@ from .strings import (
 )
 from jsonschema import validate
 
-
 def validate_anndata_with_config(
     anndata_config, anndata_file, allow_incomplete=False
 ):
@@ -222,6 +221,7 @@ def make_bundle_from_anndata(
     anndata_file,
     anndata_config,
     bundle_dir,
+    step,
     max_rank_for_stats=5,
     exp_name="NONAME",
     write_premagetab=False,
@@ -292,13 +292,23 @@ def make_bundle_from_anndata(
 
     manifest = read_file_manifest(bundle_dir)
 
-    # Make any required updates to the annData object
+    #step           - Set the bundle creation stage to one of: 'init_bundle',
+    #                 'init_magetab', 'inject_magetab', 'final'.
 
+
+    # anndata update involves setting use of edited config to set var names
+    # correctly, infer any missing markers (subject to a suitable matrix being
+    # available), and renaming matrix slots. Marker calculation in particular
+    # may rely on metadata from the MAGE-TAB. So we only do this on the final
+    # bundling.
+    
     update_anndata(adata, config, matrix_for_markers=matrix_for_markers)
 
-    # Write matrices
+    # We need to have written the matrices to get cell/library mappings when
+    # running the SDRF condense process when we're adding curated metadata to
+    # the object and bundle, as well as for the final stage.
 
-    if write_matrices:
+    if step in [ 'inect_magetab', 'final' ]:
         write_matrices_from_adata(
             manifest=manifest,
             bundle_dir=bundle_dir,
@@ -310,7 +320,7 @@ def make_bundle_from_anndata(
     # If curation has been done and MAGE-TAB metadata is available, then we'll
     # re-write the metadata of the object. If not, we output 'pre' magetab for curation
 
-    if not write_premagetab:
+    if step == 'inject_magetab':
         adata = overwrite_obs_with_magetab(
             adata=adata,
             config=config,
@@ -321,12 +331,18 @@ def make_bundle_from_anndata(
             sanitize_columns=sanitize_columns,
             bundle_dir=bundle_dir,
         )
+        
+        "cell_meta": describe_cellmeta(
+            adata,
+            droplet=config['droplet'],
+            sample_field=sample_field,
+        ),
 
         set_manifest_value(
             manifest, "condensed_sdrf", f"{exp_name}.condensed-sdrf.tsv"
         )
 
-    # Write gene metadata
+    # Write gene metadata at all steps
 
     write_gene_metadata(
         manifest=manifest,
@@ -343,49 +359,53 @@ def make_bundle_from_anndata(
         config=config,
         kind="curation",
         exp_name=exp_name,
-        write_premagetab=write_premagetab,
+        write_premagetab=(step == 'init_magetab'),
     )
 
-    # Write clusters (analytically derived cell groupings). For historical
-    # reasons this is written differently to e.g. curated metadata
+    if step == 'final':
 
-    write_clusters_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_dir,
-        adata=adata,
-        config=config,
-    )
+        # Write clusters (analytically derived cell groupings). For historical
+        # reasons this is written differently to e.g. curated metadata
 
-    # Write any associated markers
-
-    write_markers_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_dir,
-        adata=adata,
-        config=config,
-        write_marker_stats=True,
-        max_rank_for_stats=max_rank_for_stats,
-    )
-
-    # Write any dim. reds from obsm
-
-    write_obsms_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_dir,
-        adata=adata,
-        config=config,
-    )
-
-    # Write software table
-
-    if len(config["analysis_versions"]) > 0 and MISSING not in str(
-        config["analysis_versions"]
-    ):
-        print("Writing analysis versions table")
-        pd.DataFrame(config["analysis_versions"]).to_csv(
-            f"{bundle_dir}/software.tsv", sep="\t", index=False
+        write_clusters_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_dir,
+            adata=adata,
+            config=config,
         )
-        set_manifest_value(manifest, "analysis_versions_file", "software.tsv")
+
+        # Write any associated markers
+
+        write_markers_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_dir,
+            adata=adata,
+            config=config,
+            write_marker_stats=True,
+            max_rank_for_stats=max_rank_for_stats,
+        )
+
+        # Write any dim. reds from obsm
+
+        write_obsms_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_dir,
+            adata=adata,
+            config=config,
+        )
+
+        # Write software table
+
+        if len(config["analysis_versions"]) > 0 and MISSING not in str(
+            config["analysis_versions"]
+        ):
+            print("Writing analysis versions table")
+            pd.DataFrame(config["analysis_versions"]).to_csv(
+                f"{bundle_dir}/software.tsv", sep="\t", index=False
+            )
+            set_manifest_value(manifest, "analysis_versions_file", "software.tsv")
+
+    # Write the object and manifest. 
 
     print("Writing annData file")
     adata_filename = f"{exp_name}.project.h5ad"

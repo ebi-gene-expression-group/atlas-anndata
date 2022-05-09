@@ -241,11 +241,18 @@ make_bundle_from_anndata --write-premagetab GTEx_8_tissues_snRNAseq_atlas_071421
 
 This will produce the pre-MAGE-TAB files at `/mage-tab/NONAME.presdrf.txt` in the bundle.
 
-## Step 5: Do curation:
-
-### Regular curation efforts
+## Step 5: Do regular curation efforts
 
 The pre-MAGE-TAB can now be used to start curation by the curation team.
+
+## Step 6: Incorporate curation into annData object and configuration
+
+The curation at step 6 will have introduced additions and changes to the metadata. We need to bake this information into the annData object and config file so that it can be used in bundling, for example to calculate markers for cell type fields.
+
+
+
+
+
 
 ### Gather other missing info needed before final bundle creation
 
