@@ -6,7 +6,6 @@ from scanpy_scripts.click_utils import CommaSeparatedText
 
 
 @click.command()
-@click.argument("anndata_file", type=click.Path(exists=True))
 @click.argument("exp_name")
 @click.argument(
     "step",
@@ -14,6 +13,12 @@ from scanpy_scripts.click_utils import CommaSeparatedText
         ["init", "init_magetab", "inject_magetab", "final"],
         case_sensitive=False,
     ),
+)
+@click.option(
+    "--anndata-file",
+    type=click.Path(exists=True),
+    default=None,
+    help="For the 'init' stage, specify the annData file path.",
 )
 @click.option(
     "--bundle_dir",
@@ -90,26 +95,6 @@ from scanpy_scripts.click_utils import CommaSeparatedText
     ),
 )
 @click.option(
-    "--no-write-matrices",
-    "write_matrices",
-    default=True,
-    is_flag=True,
-    help=(
-        "Use to disable writing of matrices to bundle, for example in early"
-        " metadata evaluation"
-    ),
-)
-@click.option(
-    "--write-premagetab",
-    default=False,
-    is_flag=True,
-    help=(
-        "Should we write pre-magetab files for curation by SCXA team? If not,"
-        " we assume curation is done, and we will look for curated metadata"
-        " via the the exp_name parameter"
-    ),
-)
-@click.option(
     "--conda-prefix",
     type=click.Path(dir_okay=True),
     default=None,
@@ -178,13 +163,9 @@ def make_bundle(step, *args, **kwargs):
                           final bundle.
     """
 
-    from atlas_anndata import initialise_bundle, make_bundle_from_anndata
+    from atlas_anndata import make_bundle_from_anndata
 
-    if step == "init":
-        initialise_bundle(*args, **kwargs)
-
-    else:
-        make_bundle_from_anndata(step=step, *args, **kwargs)
+    make_bundle_from_anndata(step=step, *args, **kwargs)
 
 
 if __name__ == "__main__":
