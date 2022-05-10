@@ -2,6 +2,7 @@
 
 import click
 from atlas_anndata import validate_anndata_with_config
+import os
 
 
 @click.command()
