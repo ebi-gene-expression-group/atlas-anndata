@@ -423,46 +423,52 @@ def make_bundle_from_anndata(
         write_premagetab=(step == "init_magetab"),
     )
 
-    # Write clusters (analytically derived cell groupings). For historical
-    # reasons this is written differently to e.g. curated metadata
+    if step != "init":
 
-    write_clusters_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_subdir,
-        adata=adata,
-        config=config,
-    )
+        # Write clusters (analytically derived cell groupings). For historical
+        # reasons this is written differently to e.g. curated metadata
 
-    # Write any associated markers
-
-    write_markers_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_subdir,
-        adata=adata,
-        config=config,
-        write_marker_stats=True,
-        max_rank_for_stats=max_rank_for_stats,
-    )
-
-    # Write any dim. reds from obsm
-
-    write_obsms_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_subdir,
-        adata=adata,
-        config=config,
-    )
-
-    # Write software table
-
-    if len(config["analysis_versions"]) > 0 and MISSING not in str(
-        config["analysis_versions"]
-    ):
-        print("Writing analysis versions table")
-        pd.DataFrame(config["analysis_versions"]).to_csv(
-            f"{bundle_subdir}/software.tsv", sep="\t", index=False
+        write_clusters_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_subdir,
+            adata=adata,
+            config=config,
         )
-        set_manifest_value(manifest, "analysis_versions_file", "software.tsv")
+
+        # Write any associated markers
+
+        write_markers_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_subdir,
+            adata=adata,
+            config=config,
+            write_marker_stats=True,
+            max_rank_for_stats=max_rank_for_stats,
+        )
+
+        # Write any dim. reds from obsm
+
+        write_obsms_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_subdir,
+            adata=adata,
+            config=config,
+        )
+
+        # Write software table
+
+        if len(config["analysis_versions"]) > 0 and MISSING not in str(
+            config["analysis_versions"]
+        ):
+            print("Writing analysis versions table")
+            pd.DataFrame(config["analysis_versions"]).to_csv(
+                f"{bundle_subdir}/software.tsv", sep="\t", index=False
+            )
+            set_manifest_value(
+                manifest, "analysis_versions_file", "software.tsv"
+            )
+
+    # Write the anndata file back to the bundle
 
     print("Writing annData file")
     adata_filename = f"{exp_name}.project.h5ad"
