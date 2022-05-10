@@ -18,7 +18,10 @@ from scanpy_scripts.click_utils import CommaSeparatedText
     "--anndata-file",
     type=click.Path(exists=True),
     default=None,
-    help="For the 'init' stage, specify the annData file path.",
+    help=(
+        "For the 'init' stage, specify a path to a file of the  annData hdf5"
+        " specification, with all necessaryinformation for SCXA."
+    ),
 )
 @click.option(
     "--bundle_dir",
@@ -147,8 +150,6 @@ def make_bundle(step, *args, **kwargs):
     (SCXA) build proceseses
 
     \b
-    anndata_file   - A file of the annData hdf5 specification, with all
-                     necessaryinformation for SCXA.
     exp_name       - Specify an Expression Atlas identifier for this experiment.
     step           - Specify the bundle creation step. One of:
                         * 'init': start a bundle based on anndata file content

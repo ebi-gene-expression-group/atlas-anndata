@@ -42,10 +42,10 @@ jobs:
           sed -i '0,/ load_to_scxa_db: foo/{s/ load_to_scxa_db: foo/ load_to_scxa_db: normalised/}' E-MTAB-6077/anndata-config.yaml
       - name: Test CLI, Validate annData against schema and generated config
         run: |
-          validate_anndata_with_config E-MTAB-6077/anndata-config.yaml E-MTAB-6077/E-MTAB-6077.project.h5ad
+          validate_anndata_with_config E-MTAB-6077
       - name: Test CLI, Validate annData against schema and example config
         run: |
-          validate_anndata_with_config atlas_anndata/data/bundles/E-MTAB-6077/anndata-config.yaml atlas_anndata/data/bundles/E-MTAB-6077/E-MTAB-6077.project.h5ad
+          validate_anndata_with_config E-MTAB-6077 --bundle-dir atlas_anndata/data/bundles
       - name: Test CLI, Write bundle from config and adata (for pre-MAGE-TAB)
         run: |
           make_bundle_from_anndata E-MTAB-6077 init_magetab

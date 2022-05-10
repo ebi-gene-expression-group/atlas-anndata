@@ -52,7 +52,9 @@ from .strings import (
 from jsonschema import validate
 
 
-def validate_anndata_with_config(exp_name, bundle_dir, allow_incomplete=False):
+def validate_anndata_with_config(
+    exp_name, bundle_dir=os.getcwd(), allow_incomplete=False
+):
 
     """Validate an anndata against a config
 
