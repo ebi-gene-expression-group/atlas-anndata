@@ -43,6 +43,7 @@ from .anndata_ops import (
 
 from .strings import (
     schema_file,
+    example_bundle_dir,
     example_manifest,
     example_config_file,
     scxa_h5ad_test,
@@ -56,8 +57,8 @@ def validate_anndata_with_config(exp_name, bundle_dir, allow_incomplete=False):
     """Validate an anndata against a config
 
     >>> config, adata = validate_anndata_with_config(
-    ... example_config_file,
-    ... scxa_h5ad_test
+    ... 'E-MTAB-6077',
+    ... example_bundle_dir
     ... ) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
     Validating ... against .../atlas_anndata/config_schema.yaml
     Config YAML file successfully validated
@@ -164,7 +165,7 @@ def validate_anndata_with_config(exp_name, bundle_dir, allow_incomplete=False):
 
 def initialise_bundle(
     exp_name,
-    anndata_file=None,
+    anndata_file,
     bundle_dir=os.getcwd(),
     atlas_style=False,
     droplet=False,
@@ -180,7 +181,7 @@ def initialise_bundle(
     Make a yaml-format configuration file as a starting point for manual
     editing, from the content of a provided annData file.
 
-    >>> initialise_bundle(scxa_h5ad_test, '/tmp/foo.yaml')
+    >>> initialise_bundle('E-MTAB-6077', scxa_h5ad_test)
     ..Checking for gene_meta gene_name
     ..Checking for gene_meta index
     """
@@ -254,9 +255,8 @@ def initialise_bundle(
 def make_bundle_from_anndata(
     exp_name,
     step,
-    bundle_dir=None,
+    bundle_dir=os.getcwd(),
     max_rank_for_stats=5,
-    write_premagetab=False,
     conda_prefix=None,
     scxa_metadata_branch="master",
     sanitize_columns=True,
@@ -269,7 +269,11 @@ def make_bundle_from_anndata(
 
     """Make the bundle from an annData file and an associated config
 
-    >>> make_bundle_from_anndata(anndata_file = scxa_h5ad_test, anndata_config = example_config_file, bundle_dir = 'test_bundle', write_premagetab = True) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    >>> exp_name='E-MTAB-6077'
+    >>> shutil.rmtree(exp_name, ignore_errors=True)
+    >>> shutil.copytree(f"{example_bundle_dir}/{exp_name}", exp_name)
+    'E-MTAB-6077'
+    >>> make_bundle_from_anndata(exp_name = exp_name, step = 'final') # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
     Validating config against .../config_schema.yaml
     Config YAML file successfully validated
     Now checking config against anndata file
@@ -287,6 +291,7 @@ def make_bundle_from_anndata(
     ..Checking for gene_meta gene_name
     annData file successfully validated against config ...
     All marker sets detailed in config present and correct
+    Clearing any exisiting matrices
     Writing matrices
     .. Writing matrix from slot raw.X to subdir raw
     .. Writing matrix from slot filtered to subdir filtered
@@ -306,7 +311,8 @@ def make_bundle_from_anndata(
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
     Writing analysis versions table
-    Writing annData file"""
+    Writing annData file
+    >>> shutil.rmtree(exp_name, ignore_errors=True)"""
 
     bundle_subdir = f"{bundle_dir}/{exp_name}"
 
@@ -336,15 +342,15 @@ def make_bundle_from_anndata(
     if step == "final":
         update_anndata(adata, config, matrix_for_markers=matrix_for_markers)
 
-    if step != "init" and config["droplet"]:
+    # Write matrices at all stages after init
+
+    if step != "init":
         write_cell_library_mapping(
             manifest=manifest,
             bundle_dir=bundle_subdir,
             adata=adata,
             config=config,
         )
-
-        # Write matrices at all stages after init
 
         write_matrices_from_adata(
             manifest=manifest,
@@ -465,14 +471,14 @@ def make_bundle_from_anndata(
 
     # Write the final file manifest
 
-    # if MISSING in str(config):
-    #    print(
-    #        "WARNING: Not writing manifest for bundle from incomplete"
-    #        " config. For final bundle creation complete (or remove) all"
-    #        f" {MISSING} entries from the config and re-run"
-    #    )
-    # else:
-    write_file_manifest(bundle_subdir, manifest)
+    if step == 'final' and MISSING in str(config):
+        print(
+            "WARNING: Not writing manifest for bundle from incomplete"
+            " config. For final bundle creation complete (or remove) all"
+            f" {MISSING} entries from the config and re-run"
+        )
+    else:
+        write_file_manifest(bundle_subdir, manifest)
 
     # Re-write the config
 
@@ -494,43 +500,61 @@ def write_cell_library_mapping(
     config,
     matrix="",
 ):
-    print("Writing cell/library mapping")
+    """For droplet experiments, write a mapping between cell and library
 
-    # Store a cell/library mapping for each matrix. All matrices in an anndata
-    # (even .raw.X, layers etc) have the same obs, so its a bit redundant to
-    # write for possibly multiple matrices, but we do it to keep our pipelines
-    # happy for now.
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
+    >>> config = load_doc(example_config_file)
+    >>> manifest = read_file_manifest(example_bundle_dir)
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> # Our test data is not droplet. But we'll hack the structure to test this function
+    >>> config['droplet'] = True
+    >>> adata.obs['sample'] = adata.obs.index
+    >>> config['cell_meta']['sample_field'] = 'sample'
+    >>> write_cell_library_mapping(manifest, test_bundle, adata, config)
+    Writing cell/library mapping for a droplet experiment
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    """
 
-    sample_field = config["cell_meta"].get("sample_field", "sample")
-    if sample_field not in adata.obs.columns:
-        errmsg = (
-            f"{sample_field} is not a valid obs variable, and this is a"
-            " droplet experiment. This variable required to identify"
-            " cells from different samples, please define it correctly in"
-            " the config."
+    if config["droplet"]:
+        print("Writing cell/library mapping for a droplet experiment")
+
+        # Store a cell/library mapping for each matrix. All matrices in an anndata
+        # (even .raw.X, layers etc) have the same obs, so its a bit redundant to
+        # write for possibly multiple matrices, but we do it to keep our pipelines
+        # happy for now.
+
+        sample_field = config["cell_meta"].get("sample_field", "sample")
+        if sample_field not in adata.obs.columns:
+            errmsg = (
+                f"{sample_field} is not a valid obs variable, and this is a"
+                " droplet experiment. This variable required to identify"
+                " cells from different samples, please define it correctly in"
+                " the config."
+            )
+            raise Exception(errmsg)
+
+        cell_to_library = pd.DataFrame(
+            {"cell": adata.obs_names, "library": adata.obs[sample_field]}
         )
-        raise Exception(errmsg)
 
-    cell_to_library = pd.DataFrame(
-        {"cell": adata.obs_names, "library": adata.obs[sample_field]}
-    )
+        subdir = ""
+        if matrix != "":
+            subdir = f"matrices/{matrix}"
 
-    subdir = ""
-    if matrix != "":
-        subdir = f"matrices/{matrix}"
-
-    cell_to_library.to_csv(
-        f"{bundle_dir}/{subdir}/cell_to_library.txt",
-        sep="\t",
-        header=False,
-        index=False,
-    )
-    manifest = set_manifest_value(
-        manifest,
-        "cell_to_library",
-        f"{subdir}/cell_to_library.txt",
-        matrix,
-    )
+        cell_to_library.to_csv(
+            f"{bundle_dir}/{subdir}/cell_to_library.txt",
+            sep="\t",
+            header=False,
+            index=False,
+        )
+        manifest = set_manifest_value(
+            manifest,
+            "cell_to_library",
+            f"{subdir}/cell_to_library.txt",
+            matrix,
+        )
 
 
 def write_matrices_from_adata(
@@ -549,6 +573,7 @@ def write_matrices_from_adata(
     ... bundle_dir='test_bundle',
     ... adata=adata,
     ... config=egconfig)
+    Clearing any exisiting matrices
     Writing matrices
     .. Writing matrix from slot raw.X to subdir raw
     .. Writing matrix from slot filtered to subdir filtered

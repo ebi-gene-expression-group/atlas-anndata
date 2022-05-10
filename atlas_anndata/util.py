@@ -7,6 +7,7 @@ import scanpy_scripts as ss
 import pandas as pd
 from .strings import (
     schema_file,
+    example_bundle_dir,
     example_config_file,
     example_software_file,
     scxa_h5ad_test,
@@ -325,6 +326,12 @@ def read_analysis_versions_file(analysis_versions_file, atlas_style=False):
 
 
 def check_bundle_init(exp_name, bundle_dir=os.getcwd()):
+
+    """
+    Check that a bundle was properly initialised and is ready for subsequent steps
+
+    >>> check_bundle_init('E-MTAB-6077', example_bundle_dir)
+    """
 
     bundle_subdir = f"{bundle_dir}/{exp_name}"
 
