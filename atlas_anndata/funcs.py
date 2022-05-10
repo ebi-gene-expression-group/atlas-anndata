@@ -1321,7 +1321,7 @@ def write_file_manifest(bundle_dir, manifest):
     >>> shutil.rmtree(test_bundle, ignore_errors=True)
     >>> pathlib.Path(test_bundle).mkdir()
     >>> manifest = read_file_manifest(manifest_file = example_manifest)
-    >>> write_file_manifest('test_bundle', manifest)
+    >>> write_file_manifest(test_bundle, manifest)
     >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
