@@ -469,6 +469,11 @@ def make_bundle_from_anndata(
     adata.write(f"{bundle_subdir}/{adata_filename}")
     set_manifest_value(manifest, "project_file", adata_filename)
 
+    # Re-write the config
+
+    write_config(config, bundle_dir, exp_name)
+    set_manifest_value(manifest, "anndata_configuration_file", "anndata-config.yaml")
+    
     # Write the final file manifest
 
     if step == "final" and MISSING in str(config):
@@ -479,10 +484,6 @@ def make_bundle_from_anndata(
         )
     else:
         write_file_manifest(bundle_subdir, manifest)
-
-    # Re-write the config
-
-    write_config(config, bundle_dir, exp_name)
 
 
 def write_config(config, bundle_dir, exp_name):
@@ -566,11 +567,14 @@ def write_matrices_from_adata(
 ):
     """Given matrix slot definitions from a config file, write matrices in matrix market format
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> egconfig = load_doc(example_config_file)
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_matrices_from_adata(
     ... manifest=dict(),
-    ... bundle_dir='test_bundle',
+    ... bundle_dir=test_bundle,
     ... adata=adata,
     ... config=egconfig)
     Clearing any exisiting matrices
@@ -579,6 +583,7 @@ def write_matrices_from_adata(
     .. Writing matrix from slot filtered to subdir filtered
     .. normalised is a matrix we'll load into SCXA, so we'll scale it to the correct factor before we write it
     .. Writing matrix from slot normalised to subdir normalised
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     # Config tweaks can impact on matrices, so clear them all before writing
@@ -639,7 +644,7 @@ def write_clusters_from_adata(manifest, bundle_dir, adata, config):
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_clusters_from_adata(
     ...    manifest=dict(),
-    ...    bundle_dir='test_bundle',
+    ...    bundle_dir=test_bundle,
     ...    adata=adata,
     ...    config=egconfig)
     Writing obs (unsupervised clusterings)
@@ -689,17 +694,21 @@ def write_obsms_from_adata(manifest, bundle_dir, adata, config):
 
     """Given obsm slot definitions from a config file, dimension resductions to files.
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> egconfig = load_doc(example_config_file)
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_obsms_from_adata(
     ...    manifest=dict(),
-    ...    bundle_dir='test_bundle',
+    ...    bundle_dir=test_bundle,
     ...    adata=adata,
     ...    config=egconfig)
     Writing dimension reductions
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_3
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     print("Writing dimension reductions")
@@ -781,6 +790,9 @@ def write_matrix_from_adata(
     gene_name_field="gene_name",
 ):
     """
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> adata = sc.read(scxa_h5ad_test)
     >>> egconfig = load_doc(example_config_file)
     >>> write_matrix_from_adata(
@@ -788,10 +800,11 @@ def write_matrix_from_adata(
     ...     adata=adata,
     ...     config=egconfig,
     ...     slot='X',
-    ...     bundle_dir='test_bundle',
+    ...     bundle_dir=test_bundle,
     ...     subdir='normalised',
     ...     gene_name_field = 'gene_name')
-    .. Writing matrix from slot X to subdir normalised"""
+    .. Writing matrix from slot X to subdir normalised
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)"""
 
     print(f".. Writing matrix from slot {slot} to subdir {subdir}")
 
@@ -983,6 +996,9 @@ def write_obsm_from_adata(
     """
     Write a single dimension reduction from the specified slot
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_obsm_from_adata(
     ...     manifest = dict(),
@@ -990,8 +1006,9 @@ def write_obsm_from_adata(
     ...     obsm_name='X_umap_neighbors_n_neighbors_3',
     ...     embedding_type='umap',
     ...     parameterisation='',
-    ...     bundle_dir='test_bundle')
+    ...     bundle_dir=test_bundle)
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_3
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     print(f".. Writing dimension reduction from slot: {obsm_name}")
@@ -1032,7 +1049,7 @@ def write_markers_from_adata(
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_markers_from_adata(
     ...    manifest=dict(),
-    ...    bundle_dir='test_bundle',
+    ...    bundle_dir=test_bundle,
     ...    adata=adata,
     ...    config=egconfig,
     ...    write_marker_stats=True,
@@ -1293,13 +1310,16 @@ def read_file_manifest(bundle_dir=None, manifest_file=None):
 
     return manifest
 
-
 def write_file_manifest(bundle_dir, manifest):
     """
     Write a manifest into a dictionary
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> manifest = read_file_manifest(manifest_file = example_manifest)
     >>> write_file_manifest('test_bundle', manifest)
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     manifest_file = f"{bundle_dir}/MANIFEST"
