@@ -33,19 +33,19 @@ jobs:
           pytest --doctest-modules -v ./atlas_anndata
       - name: Test CLI, config creation from annData
         run: |
-          make_starting_config_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml --atlas-style
+            make_bundle_from_anndata --anndata-file atlas_anndata/data/bundles/E-MTAB-6077/E-MTAB-6077.project.h5ad E-MTAB-6077 init
       - name: Fill blanks in starting config
         run: |
-          sed -i 's/FILL ME with a string/foo/g'  test_config_from_anndata.yaml 
-          sed -i '0,/name: foo/{s/name: foo/name: raw/}' test_config_from_anndata.yaml
-          sed -i '0,/name: foo/{s/name: foo/name: scaled/}' test_config_from_anndata.yaml
-          sed -i '0,/ load_to_scxa_db: foo/{s/ load_to_scxa_db: foo/ load_to_scxa_db: normalised/}' test_config_from_anndata.yaml
+          sed -i 's/FILL ME with a string/foo/g'  E-MTAB-6077/anndata-config.yaml
+          sed -i '0,/name: foo/{s/name: foo/name: raw/}' E-MTAB-6077/anndata-config.yaml
+          sed -i '0,/name: foo/{s/name: foo/name: scaled/}' E-MTAB-6077/anndata-config.yaml
+          sed -i '0,/ load_to_scxa_db: foo/{s/ load_to_scxa_db: foo/ load_to_scxa_db: normalised/}' E-MTAB-6077/anndata-config.yaml
       - name: Test CLI, Validate annData against schema and generated config
         run: |
-          validate_anndata_with_config test_config_from_anndata.yaml atlas_anndata/data/E-MTAB-6077.project.h5ad
+          validate_anndata_with_config E-MTAB-6077/anndata-config.yaml E-MTAB-6077/E-MTAB-6077.project.h5ad
       - name: Test CLI, Validate annData against schema and example config
         run: |
-          validate_anndata_with_config atlas_anndata/example_config.yaml atlas_anndata/data/E-MTAB-6077.project.h5ad
+          validate_anndata_with_config atlas_anndata/data/bundles/E-MTAB-6077/anndata-config.yaml atlas_anndata/data/bundles/E-MTAB-6077/E-MTAB-6077.project.h5ad
       - name: Test CLI, Write bundle from config and adata (for pre-MAGE-TAB)
         run: |
-          make_bundle_from_anndata atlas_anndata/data/E-MTAB-6077.project.h5ad test_config_from_anndata.yaml test_bundle --write-premagetab
+          make_bundle_from_anndata E-MTAB-6077 init_magetab
