@@ -472,8 +472,10 @@ def make_bundle_from_anndata(
     # Re-write the config
 
     write_config(config, bundle_dir, exp_name)
-    set_manifest_value(manifest, "anndata_configuration_file", "anndata-config.yaml")
-    
+    set_manifest_value(
+        manifest, "anndata_configuration_file", "anndata-config.yaml"
+    )
+
     # Write the final file manifest
 
     if step == "final" and MISSING in str(config):
@@ -1309,6 +1311,7 @@ def read_file_manifest(bundle_dir=None, manifest_file=None):
                 )
 
     return manifest
+
 
 def write_file_manifest(bundle_dir, manifest):
     """
