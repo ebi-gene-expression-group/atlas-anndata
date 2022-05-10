@@ -471,7 +471,7 @@ def make_bundle_from_anndata(
 
     # Write the final file manifest
 
-    if step == 'final' and MISSING in str(config):
+    if step == "final" and MISSING in str(config):
         print(
             "WARNING: Not writing manifest for bundle from incomplete"
             " config. For final bundle creation complete (or remove) all"
