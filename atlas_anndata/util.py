@@ -1,6 +1,7 @@
 from .strings import MISSING_STRING
 import scanpy as sc
 import re
+import os
 import yaml
 import scanpy_scripts as ss
 import pandas as pd
@@ -321,3 +322,20 @@ def read_analysis_versions_file(analysis_versions_file, atlas_style=False):
     analysis_versions = analysis_versions[required_versions_columns]
 
     return analysis_versions
+
+
+def check_bundle_init(exp_name, bundle_dir=os.getcwd()):
+
+    bundle_subdir = f"{bundle_dir}/{exp_name}"
+
+    for fname in [
+        "MANIFEST",
+        "anndata-config.yaml",
+        f"{exp_name}.project.h5ad",
+    ]:
+        if not os.path.exists(f"{bundle_subdir}/{fname}"):
+            errmsg = (
+                f"{fname} does not exist in {bundle_subdir}, bundle has not"
+                " been initialied yet"
+            )
+            raise Exception(errmsg)
