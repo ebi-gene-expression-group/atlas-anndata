@@ -632,6 +632,9 @@ def write_clusters_from_adata(manifest, bundle_dir, adata, config):
 
     """Given obs slot definitions of clustering type from a config file, write cluster definitions to a file.
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> egconfig = load_doc(example_config_file)
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_clusters_from_adata(
@@ -640,6 +643,7 @@ def write_clusters_from_adata(manifest, bundle_dir, adata, config):
     ...    adata=adata,
     ...    config=egconfig)
     Writing obs (unsupervised clusterings)
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     print("Writing obs (unsupervised clusterings)")
@@ -893,16 +897,20 @@ def write_cell_metadata(
 ):
     """Given obs slot definitions from a config file, write cell metadata to a file.
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> egconfig = load_doc(example_config_file)
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_cell_metadata(
     ...    manifest=dict(),
     ...    adata=adata,
-    ...    bundle_dir='test_bundle',
+    ...    bundle_dir=test_bundle,
     ...    config=egconfig,
     ...    kind="curation",
     ...    write_premagetab=True)
     Writing obs metadata of kind: curation
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     print(f"Writing obs metadata of kind: {kind}")
@@ -1017,6 +1025,9 @@ def write_markers_from_adata(
     """
     Write marker tables with p values etc from .uns
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> egconfig = load_doc(example_config_file)
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_markers_from_adata(
@@ -1032,6 +1043,7 @@ def write_markers_from_adata(
     ..limiting stats report to top 5 differential genes
     ..calculating summary for cell grouping louvain_resolution_1.0
     ..limiting stats report to top 5 differential genes
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     print("Writing markers and statistics")
