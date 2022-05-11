@@ -1311,7 +1311,7 @@ def read_file_manifest(bundle_dir=None, manifest_file=None):
     Read a manifest into a dictionary, or initialise an empty one
 
     >>> read_file_manifest('test_bundle', manifest_file = example_manifest) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
-    OrderedDict([('cell_metadata', OrderedDict([('', 'NONAME.cell_metadata.tsv')])), ...
+    OrderedDict([('cell_metadata', OrderedDict([('', 'E-MTAB-6077.cell_metadata.tsv')])), ...
     """
 
     manifest_file = (
