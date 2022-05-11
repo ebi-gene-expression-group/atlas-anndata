@@ -350,6 +350,7 @@ def check_bundle_init(exp_name, bundle_dir=os.getcwd()):
             )
             raise Exception(errmsg)
 
+
 def remove_empty_dirs(path, remove_root=False):
 
     """
@@ -372,5 +373,3 @@ def remove_empty_dirs(path, remove_root=False):
         if len(files) == 0 and remove_root:
             print(f"Removing empty folder: {path}")
             os.rmdir(path)
-
-
