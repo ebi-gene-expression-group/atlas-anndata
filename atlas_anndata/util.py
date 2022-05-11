@@ -173,7 +173,9 @@ def check_slot(
     return check_result
 
 
-def extract_parameterisation(slot_type, slot_name, atlas_style=False):
+def extract_parameterisation(
+    slot_type, slot_name, atlas_style=False, name_as_default=False
+):
 
     """
     For annData objects from Single Cell Expression Atlas, infer paramerisation
@@ -202,7 +204,8 @@ def extract_parameterisation(slot_type, slot_name, atlas_style=False):
             m = re.search(r".*(louvain|leiden)_(.*)_(.*)", slot_name)
             if m:
                 parameters[m.group(2)] = string_to_numeric(m.group(3))
-
+    elif name_as_default:
+        parameters["name"] = slot_name
     return parameters
 
 
