@@ -32,6 +32,7 @@ from .util import (
     check_slot,
     clusterings_to_ks,
     check_bundle_init,
+    remove_empty_dirs,
 )
 
 from .anndata_ops import (
@@ -497,7 +498,7 @@ def make_bundle_from_anndata(
         write_file_manifest(bundle_subdir, manifest)
 
     if step == "final":
-        reconcile_dict_bundle(bundle_subdir, manifest)
+        reconcile_manifest_bundle(bundle_subdir, manifest)
 
 
 def write_config(config, bundle_dir, exp_name):
@@ -1332,24 +1333,17 @@ def read_file_manifest(bundle_dir=None, manifest_file=None):
     return manifest
 
 
-def remove_empty_dirs(path, remove_root=False):
+def reconcile_manifest_bundle(bundle_dir, manifest):
 
-    if os.path.isdir(path):
-        # remove empty subfolders
-        files = os.listdir(path)
-        for f in files:
-            fullpath = os.path.join(path, f)
-            if os.path.isdir(fullpath):
-                remove_empty_dirs(fullpath, remove_root=True)
+    """
+    Remove files in a bundle directory which are absent from the manifest
 
-        # if folder empty, delete it
-        files = os.listdir(path)
-        if len(files) == 0 and remove_root:
-            print(f"Removing empty folder: {path}")
-            os.rmdir(path)
-
-
-def reconcile_dict_bundle(bundle_dir, manifest):
+    >>> exp_name='E-MTAB-6077'
+    >>> shutil.rmtree(exp_name, ignore_errors=True)
+    >>> shutil.copytree(f"{example_bundle_dir}/{exp_name}", exp_name)
+    >>> reconcile_manifest_bundle(exp_name, f"{exp_name}/MANIFEST")
+    >>> shutil.rmtree(exp_name, ignore_errors=True)
+    """
 
     cwd = os.getcwd()
     manifest_files = [

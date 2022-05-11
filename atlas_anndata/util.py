@@ -349,3 +349,28 @@ def check_bundle_init(exp_name, bundle_dir=os.getcwd()):
                 " been initialied yet"
             )
             raise Exception(errmsg)
+
+def remove_empty_dirs(path, remove_root=False):
+
+    """
+    Recursively remove empty directories from a directory
+
+    >>> os.makedirs('foo/bar/fi')
+    >>> remove_empty_dirs("foo/bar/fi", remove_root=True)
+    """
+
+    if os.path.isdir(path):
+        # remove empty subfolders
+        files = os.listdir(path)
+        for f in files:
+            fullpath = os.path.join(path, f)
+            if os.path.isdir(fullpath):
+                remove_empty_dirs(fullpath, remove_root=True)
+
+        # if folder empty, delete it
+        files = os.listdir(path)
+        if len(files) == 0 and remove_root:
+            print(f"Removing empty folder: {path}")
+            os.rmdir(path)
+
+
