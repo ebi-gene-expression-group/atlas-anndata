@@ -92,7 +92,7 @@ Once finalised, the config YAML should be added to the `scxa_metadata` repo alon
 
 ## Role of curators and bioinformaticians
 
-The process is progressive, with information on an experiment gradulally being accumulated for potential partial analysis and loading. Steps 1-5 could be undertaken by curators, iwth the bundle and configuration then being handed off to bionformaticians. However additional author-provided information (e.g. on matrix processing) is likely to be needed at step 6, and it may be that that information could be gathered from authors alongside curation in step 4.
+The process is progressive, with information on an experiment gradulally being accumulated for potential partial analysis and loading. Steps 1-5 could be undertaken by curators, with the bundle and configuration then being handed off to bionformaticians. However additional author-provided information (e.g. on matrix processing) is likely to be needed at step 6, and it may be that that information could be gathered from authors alongside curation in step 4.
 
 ## Protocol: producing an analysis bundle from arbitrary annData files
 
@@ -205,6 +205,8 @@ Both of these things are accomplished by 'make_starting_config_from_anndata` wit
 ```
 make_bundle_from_anndata --anndata-file atlas_anndata/data/bundles/E-MTAB-6077/E-MTAB-6077.project.h5ad E-MTAB-6077 init
 ``` 
+
+(note: we would supply `--droplet` at this stage for a droplet experiment).
 
 This will create a starting bundle, by default in the current directory (see `--bundle-dir`), including a starting version of the bundle configuration and a copy of the annData file which we will eventually customise and distribute:
 
