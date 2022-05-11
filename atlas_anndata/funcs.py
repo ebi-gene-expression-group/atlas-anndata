@@ -1341,6 +1341,7 @@ def reconcile_manifest_bundle(bundle_dir, manifest):
     >>> exp_name='E-MTAB-6077'
     >>> shutil.rmtree(exp_name, ignore_errors=True)
     >>> shutil.copytree(f"{example_bundle_dir}/{exp_name}", exp_name)
+    'E-MTAB-6077'
     >>> reconcile_manifest_bundle(exp_name, f"{exp_name}/MANIFEST")
     >>> shutil.rmtree(exp_name, ignore_errors=True)
     """

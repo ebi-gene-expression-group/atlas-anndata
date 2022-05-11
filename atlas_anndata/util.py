@@ -358,6 +358,7 @@ def remove_empty_dirs(path, remove_root=False):
 
     >>> os.makedirs('foo/bar/fi')
     >>> remove_empty_dirs("foo/bar/fi", remove_root=True)
+    Removing empty folder: foo/bar/fi
     """
 
     if os.path.isdir(path):
