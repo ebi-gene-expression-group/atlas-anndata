@@ -1,5 +1,5 @@
 Description	File	Parameterisation
-cell_metadata	NONAME.cell_metadata.tsv	
+cell_metadata	E-MTAB-6077.cell_metadata.tsv	
 cluster_memberships	clusters_for_bundle.txt	
 cluster_markers	markers_2.tsv	2
 cluster_markers	markers_5.tsv	5
@@ -8,4 +8,5 @@ umap_embeddings	umap_neighbors_n_neighbors_3.tsv	3
 umap_embeddings	umap_neighbors_n_neighbors_10.tsv	5
 umap_embeddings	umap_neighbors_n_neighbors_10.tsv	10
 analysis_versions_file	test_bundle/software.tsv	
-project_file	NONAME.project.h5ad	
+project_file	E-MTAB-6077.project.h5ad	
+anndata_configuration_file	anndata-config.yaml	
