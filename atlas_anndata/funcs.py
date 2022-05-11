@@ -16,6 +16,7 @@ import gzip
 import math
 import csv
 import numpy as np
+import glob
 
 from .anndata_config import (
     describe_matrices,
@@ -495,6 +496,9 @@ def make_bundle_from_anndata(
     else:
         write_file_manifest(bundle_subdir, manifest)
 
+    if step == "final":
+        reconcile_dict_bundle(bundle_subdir, manifest)
+
 
 def write_config(config, bundle_dir, exp_name):
 
@@ -878,7 +882,7 @@ def write_gene_metadata(
 ):
     print("Writing var(gene) metadata")
 
-    genemeta_filename = f"{bundle_dir}/reference/gene_annotation.txt"
+    genemeta_filename = "reference/gene_annotation.txt"
     pathlib.Path(f"{bundle_dir}/reference").mkdir(parents=True, exist_ok=True)
 
     nonmeta_var_patterns = [
@@ -897,13 +901,13 @@ def write_gene_metadata(
     genemeta_cols = [x for x in adata.var.columns if x not in nonmeta_cols]
 
     adata.var[genemeta_cols].to_csv(
-        genemeta_filename,
+        f"{bundle_dir}/{genemeta_filename}",
         sep="\t",
         header=True,
         index=True,
         index_label="gene_id",
     )
-    manifest = set_manifest_value(manifest, "cell_metadata", genemeta_filename)
+    manifest = set_manifest_value(manifest, "gene_metadata", genemeta_filename)
 
 
 # Write cell metadata, including for curation as mage-tab
@@ -1135,43 +1139,50 @@ def write_markers_from_adata(
     # Now make summary statstics if we have an appropriate matrix
 
     if write_marker_stats and "load_to_scxa_db" in config["matrices"]:
+        if MISSING in str(config["matrices"]["load_to_scxa_db"]):
+            print(
+                "load_to_scxa_db not set in config, can't calculate marker"
+                " stats"
+            )
+        else:
+            matrix_for_stats = config["matrices"]["load_to_scxa_db"]
+            matrix_for_stats_name = [
+                x["name"]
+                for x in config["matrices"]["entries"]
+                if x["slot"] == matrix_for_stats
+            ][0]
 
-        matrix_for_stats = config["matrices"]["load_to_scxa_db"]
-        matrix_for_stats_name = [
-            x["name"]
-            for x in config["matrices"]["entries"]
-            if x["slot"] == matrix_for_stats
-        ][0]
+            # Add mean and median for cell groups to the anndata
 
-        # Add mean and median for cell groups to the anndata
+            calculate_summary_stats(
+                adata,
+                marker_groupings,
+                matrix=matrix_for_stats,
+            )
 
-        calculate_summary_stats(
-            adata,
-            marker_groupings,
-            matrix=matrix_for_stats,
-        )
+            marker_summary = pd.concat(
+                [
+                    make_markers_summary(
+                        adata,
+                        config["matrices"]["load_to_scxa_db"],
+                        cell_grouping,
+                        de_table,
+                        max_rank=max_rank_for_stats,
+                        cell_group_kind=cell_group_kind,
+                    )
+                    for cell_grouping, de_table in de_tables.items()
+                ]
+            )
+            statsfile = f"{matrix_for_stats_name}_stats.csv"
 
-        marker_summary = pd.concat(
-            [
-                make_markers_summary(
-                    adata,
-                    config["matrices"]["load_to_scxa_db"],
-                    cell_grouping,
-                    de_table,
-                    max_rank=max_rank_for_stats,
-                    cell_group_kind=cell_group_kind,
-                )
-                for cell_grouping, de_table in de_tables.items()
-            ]
-        )
-        statsfile = f"{bundle_dir}/{matrix_for_stats_name}_stats.csv"
-
-        marker_summary.to_csv(
-            statsfile, index=False, quoting=csv.QUOTE_NONNUMERIC
-        )
-        manifest = set_manifest_value(
-            manifest, "marker_stats", statsfile, matrix_for_stats
-        )
+            marker_summary.to_csv(
+                f"{bundle_dir}/{statsfile}",
+                index=False,
+                quoting=csv.QUOTE_NONNUMERIC,
+            )
+            manifest = set_manifest_value(
+                manifest, "marker_stats", statsfile, matrix_for_stats
+            )
 
 
 def make_markers_summary(
@@ -1319,6 +1330,51 @@ def read_file_manifest(bundle_dir=None, manifest_file=None):
                 )
 
     return manifest
+
+
+def remove_empty_dirs(path, remove_root=False):
+
+    if os.path.isdir(path):
+        # remove empty subfolders
+        files = os.listdir(path)
+        for f in files:
+            fullpath = os.path.join(path, f)
+            if os.path.isdir(fullpath):
+                remove_empty_dirs(fullpath, remove_root=True)
+
+        # if folder empty, delete it
+        files = os.listdir(path)
+        if len(files) == 0 and remove_root:
+            print(f"Removing empty folder: {path}")
+            os.rmdir(path)
+
+
+def reconcile_dict_bundle(bundle_dir, manifest):
+
+    cwd = os.getcwd()
+    manifest_files = [
+        item
+        for sublist in [list(x.values()) for x in manifest.values()]
+        for item in sublist
+    ]
+    os.chdir(bundle_dir)
+    bundle_files = [
+        x for x in glob.glob("**", recursive=True) if not os.path.isdir(x)
+    ]
+
+    # Remove any files not in the manifest
+
+    for non_manifest_file in [
+        x for x in bundle_files if x not in manifest_files
+    ]:
+        if non_manifest_file != "MANIFEST":
+            print(f"Cleaning up {non_manifest_file}")
+            os.remove(non_manifest_file)
+    os.chdir(cwd)
+
+    # Finally clean up any empty directories
+
+    remove_empty_dirs(bundle_dir)
 
 
 def write_file_manifest(bundle_dir, manifest):
