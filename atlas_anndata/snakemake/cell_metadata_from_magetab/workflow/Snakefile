@@ -28,7 +28,7 @@ rule git_clone:
         fi
 
         if [ ! -d "git/{wildcards.repo}" ]; then
-            git clone --depth 1 git@gitlab.ebi.ac.uk:ebi-gene-expression/{wildcards.repo}.git git/{wildcards.repo}$branch
+            git clone --filter=tree:0 --filter=blob:none --depth 1 git@gitlab.ebi.ac.uk:ebi-gene-expression/{wildcards.repo}.git git/{wildcards.repo}$branch
         fi
         """
 
