@@ -353,9 +353,9 @@ Provided that `load_to_scxa_db` is speicified and the corresponding matrix match
 ```
   - default: false
     kind: curation
-    markers: false <<< Maybe you'd flip this
+    markers: false <<< We proably want to flip this one much of the time
     parameters: {}
-    slot: Cell types level 2
+    slot: authors_cell_type_-_ontology_labels
 ```
 
 ## Step 7: final bundle run: write final bundle from completed YAML file
