@@ -183,12 +183,21 @@ def describe_dimreds(adata, atlas_style=False, droplet=False):
 
     # Describe dimension reductions stored in .obsm
 
-    for obsm in adata.obsm.keys():
+    kinds = [
+        slot_kind_from_name("dimension_reductions", obsm, adata)
+        for obsm in adata.obsm.keys()
+    ]
+    kind_counts = {i: kinds.count(i) for i in set(kinds)}
+
+    for obsm, kind in zip(adata.obsm.keys(), kinds):
         obsm_entry = {
             "slot": obsm,
-            "kind": slot_kind_from_name("dimension_reductions", obsm, adata),
+            "kind": kind,
             "parameters": extract_parameterisation(
-                "dimension_reductions", obsm, atlas_style
+                "dimension_reductions",
+                obsm,
+                atlas_style,
+                name_as_default=kind_counts[kind] > 1,
             ),
         }
 

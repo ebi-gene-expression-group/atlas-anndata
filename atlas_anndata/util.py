@@ -1,11 +1,13 @@
 from .strings import MISSING_STRING
 import scanpy as sc
 import re
+import os
 import yaml
 import scanpy_scripts as ss
 import pandas as pd
 from .strings import (
     schema_file,
+    example_bundle_dir,
     example_config_file,
     example_software_file,
     scxa_h5ad_test,
@@ -171,7 +173,9 @@ def check_slot(
     return check_result
 
 
-def extract_parameterisation(slot_type, slot_name, atlas_style=False):
+def extract_parameterisation(
+    slot_type, slot_name, atlas_style=False, name_as_default=False
+):
 
     """
     For annData objects from Single Cell Expression Atlas, infer paramerisation
@@ -200,7 +204,8 @@ def extract_parameterisation(slot_type, slot_name, atlas_style=False):
             m = re.search(r".*(louvain|leiden)_(.*)_(.*)", slot_name)
             if m:
                 parameters[m.group(2)] = string_to_numeric(m.group(3))
-
+    elif name_as_default:
+        parameters["name"] = slot_name
     return parameters
 
 
@@ -321,3 +326,51 @@ def read_analysis_versions_file(analysis_versions_file, atlas_style=False):
     analysis_versions = analysis_versions[required_versions_columns]
 
     return analysis_versions
+
+
+def check_bundle_init(exp_name, bundle_dir=os.getcwd()):
+
+    """
+    Check that a bundle was properly initialised and is ready for subsequent steps
+
+    >>> check_bundle_init('E-MTAB-6077', example_bundle_dir)
+    """
+
+    bundle_subdir = f"{bundle_dir}/{exp_name}"
+
+    for fname in [
+        "MANIFEST",
+        "anndata-config.yaml",
+        f"{exp_name}.project.h5ad",
+    ]:
+        if not os.path.exists(f"{bundle_subdir}/{fname}"):
+            errmsg = (
+                f"{fname} does not exist in {bundle_subdir}, bundle has not"
+                " been initialied yet"
+            )
+            raise Exception(errmsg)
+
+
+def remove_empty_dirs(path, remove_root=False):
+
+    """
+    Recursively remove empty directories from a directory
+
+    >>> os.makedirs('foo/bar/fi')
+    >>> remove_empty_dirs("foo/bar/fi", remove_root=True)
+    Removing empty folder: foo/bar/fi
+    """
+
+    if os.path.isdir(path):
+        # remove empty subfolders
+        files = os.listdir(path)
+        for f in files:
+            fullpath = os.path.join(path, f)
+            if os.path.isdir(fullpath):
+                remove_empty_dirs(fullpath, remove_root=True)
+
+        # if folder empty, delete it
+        files = os.listdir(path)
+        if len(files) == 0 and remove_root:
+            print(f"Removing empty folder: {path}")
+            os.rmdir(path)

@@ -16,6 +16,7 @@ import gzip
 import math
 import csv
 import numpy as np
+import glob
 
 from .anndata_config import (
     describe_matrices,
@@ -30,6 +31,8 @@ from .anndata_config import (
 from .util import (
     check_slot,
     clusterings_to_ks,
+    check_bundle_init,
+    remove_empty_dirs,
 )
 
 from .anndata_ops import (
@@ -42,6 +45,7 @@ from .anndata_ops import (
 
 from .strings import (
     schema_file,
+    example_bundle_dir,
     example_manifest,
     example_config_file,
     scxa_h5ad_test,
@@ -51,14 +55,14 @@ from jsonschema import validate
 
 
 def validate_anndata_with_config(
-    anndata_config, anndata_file, allow_incomplete=False
+    exp_name, bundle_dir=os.getcwd(), allow_incomplete=False
 ):
 
     """Validate an anndata against a config
 
     >>> config, adata = validate_anndata_with_config(
-    ... example_config_file,
-    ... scxa_h5ad_test
+    ... 'E-MTAB-6077',
+    ... example_bundle_dir
     ... ) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
     Validating ... against .../atlas_anndata/config_schema.yaml
     Config YAML file successfully validated
@@ -78,7 +82,10 @@ def validate_anndata_with_config(
     annData file successfully validated against config ...
     """
 
+    bundle_subdir = f"{bundle_dir}/{exp_name}"
+    anndata_config = f"{bundle_subdir}/anndata-config.yaml"
     config = load_doc(anndata_config)
+    anndata_file = f"{bundle_subdir}/{exp_name}.project.h5ad"
 
     # First validate the anndata descripton file against the YAML schema
 
@@ -160,27 +167,47 @@ def validate_anndata_with_config(
     return (config, adata)
 
 
-def make_starting_config_from_anndata(
+def initialise_bundle(
+    exp_name,
     anndata_file,
-    anndata_config,
+    bundle_dir=os.getcwd(),
     atlas_style=False,
-    exp_name=None,
     droplet=False,
     gene_id_field="index",
     gene_name_field="gene_name",
     sample_field="sample",
     default_clustering=None,
     analysis_versions_file=None,
+    **kwargs,
 ):
 
     """
     Make a yaml-format configuration file as a starting point for manual
     editing, from the content of a provided annData file.
 
-    >>> make_starting_config_from_anndata(scxa_h5ad_test, '/tmp/foo.yaml')
+    >>> initialise_bundle('E-MTAB-6077', scxa_h5ad_test)
     ..Checking for gene_meta gene_name
     ..Checking for gene_meta index
     """
+
+    if anndata_file is None:
+        errmsg = "No annData file supplied for bundle initialisation."
+        raise Exception(errmsg)
+
+    # Clear and create the output location
+
+    bundle_subdir = f"{bundle_dir}/{exp_name}"
+
+    if Path(bundle_subdir).is_dir():
+        shutil.rmtree(bundle_subdir)
+
+    pathlib.Path(bundle_subdir).mkdir(parents=True)
+
+    # Initialise the manifest
+
+    manifest = read_file_manifest(bundle_dir)
+
+    # Read and describe the anndata file
 
     adata = sc.read(anndata_file)
 
@@ -214,29 +241,43 @@ def make_starting_config_from_anndata(
         ),
     }
 
-    with open(anndata_config, "w") as file:
-        yaml.dump(config, file)
+    # Write copy of annData to the bundle
+
+    adata_filename = f"{exp_name}.project.h5ad"
+    adata.write(f"{bundle_subdir}/{adata_filename}")
+    set_manifest_value(manifest, "project_file", adata_filename)
+
+    # Write the manifest
+
+    write_file_manifest(bundle_subdir, manifest)
+
+    # Write the config
+
+    write_config(config, bundle_dir, exp_name)
 
 
 def make_bundle_from_anndata(
-    anndata_file,
-    anndata_config,
-    bundle_dir,
+    exp_name,
+    step,
+    bundle_dir=os.getcwd(),
     max_rank_for_stats=5,
-    exp_name="NONAME",
-    write_premagetab=False,
     conda_prefix=None,
     scxa_metadata_branch="master",
     sanitize_columns=True,
-    write_matrices=True,
     matrix_for_markers=None,
     scxa_db_scale=1000000,
+    atlas_style=False,
+    default_clustering=None,
     **kwargs,
 ):
 
     """Make the bundle from an annData file and an associated config
 
-    >>> make_bundle_from_anndata(anndata_file = scxa_h5ad_test, anndata_config = example_config_file, bundle_dir = 'test_bundle', write_premagetab = True) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    >>> exp_name='E-MTAB-6077'
+    >>> shutil.rmtree(exp_name, ignore_errors=True)
+    >>> shutil.copytree(f"{example_bundle_dir}/{exp_name}", exp_name)
+    'E-MTAB-6077'
+    >>> make_bundle_from_anndata(exp_name = exp_name, step = 'final') # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
     Validating config against .../config_schema.yaml
     Config YAML file successfully validated
     Now checking config against anndata file
@@ -254,6 +295,7 @@ def make_bundle_from_anndata(
     ..Checking for gene_meta gene_name
     annData file successfully validated against config ...
     All marker sets detailed in config present and correct
+    Clearing any exisiting matrices
     Writing matrices
     .. Writing matrix from slot raw.X to subdir raw
     .. Writing matrix from slot filtered to subdir filtered
@@ -273,44 +315,60 @@ def make_bundle_from_anndata(
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
     Writing analysis versions table
-    Writing annData file"""
+    Writing annData file
+    >>> shutil.rmtree(exp_name, ignore_errors=True)"""
+
+    bundle_subdir = f"{bundle_dir}/{exp_name}"
+
+    if step == "init":
+        initialise_bundle(
+            exp_name,
+            atlas_style=atlas_style,
+            default_clustering=default_clustering,
+            **kwargs,
+        )
+    else:
+        # Check bundle was initialied correctly
+        check_bundle_init(exp_name, bundle_dir=bundle_dir)
 
     # Make sure the config matches the schema and anndata
 
     config, adata = validate_anndata_with_config(
-        anndata_config, anndata_file, allow_incomplete=write_premagetab
+        exp_name, bundle_dir, allow_incomplete=(step != "final")
     )
 
-    # Clear and create the output location
+    # Read the manifest
 
-    if Path(bundle_dir).is_dir():
-        shutil.rmtree(bundle_dir)
-
-    pathlib.Path(f"{bundle_dir}").mkdir(parents=True)
-
-    # Initialise the manifest
-
-    manifest = read_file_manifest(bundle_dir)
+    manifest = read_file_manifest(bundle_subdir)
 
     # Make any required updates to the annData object
 
-    update_anndata(adata, config, matrix_for_markers=matrix_for_markers)
+    if step == "final":
+        update_anndata(adata, config, matrix_for_markers=matrix_for_markers)
 
-    # Write matrices
+    # Write matrices at all stages after init
 
-    if write_matrices:
+    if step != "init":
+        write_cell_library_mapping(
+            manifest=manifest,
+            bundle_dir=bundle_subdir,
+            adata=adata,
+            config=config,
+        )
+
         write_matrices_from_adata(
             manifest=manifest,
-            bundle_dir=bundle_dir,
+            bundle_dir=bundle_subdir,
             adata=adata,
             config=config,
             scxa_db_scale=scxa_db_scale,
         )
 
-    # If curation has been done and MAGE-TAB metadata is available, then we'll
-    # re-write the metadata of the object. If not, we output 'pre' magetab for curation
+    if step == "inject_magetab":
 
-    if not write_premagetab:
+        # If curation has been done and MAGE-TAB metadata is available, then we'll
+        # re-write the metadata of the object. If not, we output 'pre' magetab for curation
+
         adata = overwrite_obs_with_magetab(
             adata=adata,
             config=config,
@@ -319,8 +377,31 @@ def make_bundle_from_anndata(
             conda_prefix=conda_prefix,
             scxa_metadata_branch=scxa_metadata_branch,
             sanitize_columns=sanitize_columns,
-            bundle_dir=bundle_dir,
+            bundle_dir=bundle_subdir,
         )
+
+        # Also add any new fields to the config
+        updated_cellmeta = describe_cellmeta(
+            adata,
+            atlas_style=atlas_style,
+            droplet=config["droplet"],
+            default_clustering=default_clustering,
+            sample_field=config["cell_meta"]["sample_field"],
+        )
+
+        current_meta_slots = [
+            x["slot"] for x in config["cell_meta"]["entries"]
+        ]
+        updated_meta_slots = [x["slot"] for x in updated_cellmeta["entries"]]
+        new_meta_slots = list(
+            set(updated_meta_slots) - set(current_meta_slots)
+        )
+
+        config["cell_meta"]["entries"] = config["cell_meta"]["entries"] + [
+            x
+            for x in updated_cellmeta["entries"]
+            if x["slot"] in new_meta_slots
+        ]
 
         set_manifest_value(
             manifest, "condensed_sdrf", f"{exp_name}.condensed-sdrf.tsv"
@@ -331,7 +412,7 @@ def make_bundle_from_anndata(
     write_gene_metadata(
         manifest=manifest,
         adata=adata,
-        bundle_dir=bundle_dir,
+        bundle_dir=bundle_subdir,
     )
 
     # Write cell metadata (curated cell info)
@@ -339,69 +420,157 @@ def make_bundle_from_anndata(
     write_cell_metadata(
         manifest=manifest,
         adata=adata,
-        bundle_dir=bundle_dir,
+        bundle_dir=bundle_subdir,
         config=config,
         kind="curation",
         exp_name=exp_name,
-        write_premagetab=write_premagetab,
+        write_premagetab=(step == "init_magetab"),
     )
 
-    # Write clusters (analytically derived cell groupings). For historical
-    # reasons this is written differently to e.g. curated metadata
+    if step != "init":
 
-    write_clusters_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_dir,
-        adata=adata,
-        config=config,
-    )
+        # Write clusters (analytically derived cell groupings). For historical
+        # reasons this is written differently to e.g. curated metadata
 
-    # Write any associated markers
-
-    write_markers_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_dir,
-        adata=adata,
-        config=config,
-        write_marker_stats=True,
-        max_rank_for_stats=max_rank_for_stats,
-    )
-
-    # Write any dim. reds from obsm
-
-    write_obsms_from_adata(
-        manifest=manifest,
-        bundle_dir=bundle_dir,
-        adata=adata,
-        config=config,
-    )
-
-    # Write software table
-
-    if len(config["analysis_versions"]) > 0 and MISSING not in str(
-        config["analysis_versions"]
-    ):
-        print("Writing analysis versions table")
-        pd.DataFrame(config["analysis_versions"]).to_csv(
-            f"{bundle_dir}/software.tsv", sep="\t", index=False
+        write_clusters_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_subdir,
+            adata=adata,
+            config=config,
         )
-        set_manifest_value(manifest, "analysis_versions_file", "software.tsv")
+
+        # Write any associated markers
+
+        write_markers_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_subdir,
+            adata=adata,
+            config=config,
+            write_marker_stats=True,
+            max_rank_for_stats=max_rank_for_stats,
+        )
+
+        # Write any dim. reds from obsm
+
+        write_obsms_from_adata(
+            manifest=manifest,
+            bundle_dir=bundle_subdir,
+            adata=adata,
+            config=config,
+        )
+
+        # Write software table
+
+        if len(config["analysis_versions"]) > 0 and MISSING not in str(
+            config["analysis_versions"]
+        ):
+            print("Writing analysis versions table")
+            pd.DataFrame(config["analysis_versions"]).to_csv(
+                f"{bundle_subdir}/software.tsv", sep="\t", index=False
+            )
+            set_manifest_value(
+                manifest, "analysis_versions_file", "software.tsv"
+            )
+
+    # Write the anndata file back to the bundle
 
     print("Writing annData file")
     adata_filename = f"{exp_name}.project.h5ad"
-    adata.write(f"{bundle_dir}/{adata_filename}")
+    adata.write(f"{bundle_subdir}/{adata_filename}")
     set_manifest_value(manifest, "project_file", adata_filename)
+
+    # Re-write the config
+
+    write_config(config, bundle_dir, exp_name)
+    set_manifest_value(
+        manifest, "anndata_configuration_file", "anndata-config.yaml"
+    )
 
     # Write the final file manifest
 
-    if MISSING in str(config):
+    if step == "final" and MISSING in str(config):
         print(
-            "WARNING: Not writing manifest for bundle from incomplete config."
-            " For final bundle creation complete (or remove) all"
+            "WARNING: Not writing manifest for bundle from incomplete"
+            " config. For final bundle creation complete (or remove) all"
             f" {MISSING} entries from the config and re-run"
         )
     else:
-        write_file_manifest(bundle_dir, manifest)
+        write_file_manifest(bundle_subdir, manifest)
+
+    if step == "final":
+        reconcile_manifest_bundle(bundle_subdir, manifest)
+
+
+def write_config(config, bundle_dir, exp_name):
+
+    anndata_config = f"{bundle_dir}/{exp_name}/anndata-config.yaml"
+
+    with open(anndata_config, "w") as file:
+        yaml.dump(config, file)
+
+
+def write_cell_library_mapping(
+    manifest,
+    bundle_dir,
+    adata,
+    config,
+    matrix="",
+):
+    """For droplet experiments, write a mapping between cell and library
+
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
+    >>> config = load_doc(example_config_file)
+    >>> manifest = read_file_manifest(example_bundle_dir)
+    >>> adata = sc.read(scxa_h5ad_test)
+    >>> # Our test data is not droplet. But we'll hack the structure to test this function
+    >>> config['droplet'] = True
+    >>> adata.obs['sample'] = adata.obs.index
+    >>> config['cell_meta']['sample_field'] = 'sample'
+    >>> write_cell_library_mapping(manifest, test_bundle, adata, config)
+    Writing cell/library mapping for a droplet experiment
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    """
+
+    if config["droplet"]:
+        print("Writing cell/library mapping for a droplet experiment")
+
+        # Store a cell/library mapping for each matrix. All matrices in an anndata
+        # (even .raw.X, layers etc) have the same obs, so its a bit redundant to
+        # write for possibly multiple matrices, but we do it to keep our pipelines
+        # happy for now.
+
+        sample_field = config["cell_meta"].get("sample_field", "sample")
+        if sample_field not in adata.obs.columns:
+            errmsg = (
+                f"{sample_field} is not a valid obs variable, and this is a"
+                " droplet experiment. This variable required to identify"
+                " cells from different samples, please define it correctly in"
+                " the config."
+            )
+            raise Exception(errmsg)
+
+        cell_to_library = pd.DataFrame(
+            {"cell": adata.obs_names, "library": adata.obs[sample_field]}
+        )
+
+        subdir = ""
+        if matrix != "":
+            subdir = f"matrices/{matrix}"
+
+        cell_to_library.to_csv(
+            f"{bundle_dir}/{subdir}/cell_to_library.txt",
+            sep="\t",
+            header=False,
+            index=False,
+        )
+        manifest = set_manifest_value(
+            manifest,
+            "cell_to_library",
+            f"{subdir}/cell_to_library.txt",
+            matrix,
+        )
 
 
 def write_matrices_from_adata(
@@ -413,19 +582,33 @@ def write_matrices_from_adata(
 ):
     """Given matrix slot definitions from a config file, write matrices in matrix market format
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> egconfig = load_doc(example_config_file)
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_matrices_from_adata(
     ... manifest=dict(),
-    ... bundle_dir='test_bundle',
+    ... bundle_dir=test_bundle,
     ... adata=adata,
     ... config=egconfig)
+    Clearing any exisiting matrices
     Writing matrices
     .. Writing matrix from slot raw.X to subdir raw
     .. Writing matrix from slot filtered to subdir filtered
     .. normalised is a matrix we'll load into SCXA, so we'll scale it to the correct factor before we write it
     .. Writing matrix from slot normalised to subdir normalised
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
+
+    # Config tweaks can impact on matrices, so clear them all before writing
+
+    print("Clearing any exisiting matrices")
+    matrix_subdir = f"{bundle_dir}/matrices"
+    if Path(matrix_subdir).is_dir():
+        shutil.rmtree(matrix_subdir)
+
+    pathlib.Path(matrix_subdir).mkdir(parents=True)
 
     print("Writing matrices")
     for slot_def in config["matrices"]["entries"]:
@@ -469,14 +652,18 @@ def write_clusters_from_adata(manifest, bundle_dir, adata, config):
 
     """Given obs slot definitions of clustering type from a config file, write cluster definitions to a file.
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> egconfig = load_doc(example_config_file)
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_clusters_from_adata(
     ...    manifest=dict(),
-    ...    bundle_dir='test_bundle',
+    ...    bundle_dir=test_bundle,
     ...    adata=adata,
     ...    config=egconfig)
     Writing obs (unsupervised clusterings)
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     print("Writing obs (unsupervised clusterings)")
@@ -522,17 +709,21 @@ def write_obsms_from_adata(manifest, bundle_dir, adata, config):
 
     """Given obsm slot definitions from a config file, dimension resductions to files.
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> egconfig = load_doc(example_config_file)
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_obsms_from_adata(
     ...    manifest=dict(),
-    ...    bundle_dir='test_bundle',
+    ...    bundle_dir=test_bundle,
     ...    adata=adata,
     ...    config=egconfig)
     Writing dimension reductions
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_3
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     print("Writing dimension reductions")
@@ -614,6 +805,9 @@ def write_matrix_from_adata(
     gene_name_field="gene_name",
 ):
     """
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> adata = sc.read(scxa_h5ad_test)
     >>> egconfig = load_doc(example_config_file)
     >>> write_matrix_from_adata(
@@ -621,10 +815,11 @@ def write_matrix_from_adata(
     ...     adata=adata,
     ...     config=egconfig,
     ...     slot='X',
-    ...     bundle_dir='test_bundle',
+    ...     bundle_dir=test_bundle,
     ...     subdir='normalised',
     ...     gene_name_field = 'gene_name')
-    .. Writing matrix from slot X to subdir normalised"""
+    .. Writing matrix from slot X to subdir normalised
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)"""
 
     print(f".. Writing matrix from slot {slot} to subdir {subdir}")
 
@@ -644,58 +839,40 @@ def write_matrix_from_adata(
 
     # Create the subdir
 
-    pathlib.Path(bundle_dir, subdir).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(bundle_dir, "matrices", subdir).mkdir(
+        parents=True, exist_ok=True
+    )
     ss.cmd_utils.write_mtx(
         adata,
-        fname_prefix=f"{bundle_dir}/{subdir}/",
+        fname_prefix=f"{bundle_dir}/matrices/{subdir}/",
         use_raw=use_raw,
         use_layer=layer,
         var=[gene_name_field],
         compression={"method": "gzip"},
     )
 
-    if config["droplet"]:
-
-        # Store a cell/library mapping for each matrix. All matrices in an anndata
-        # (even .raw.X, layers etc) have the same obs, so its a bit redundant to
-        # write for possibly multiple matrices, but we do it to keep our pipelines
-        # happy for now.
-
-        sample_field = config["cell_meta"].get("sample_field", "sample")
-        if sample_field not in adata.obs.columns:
-            errmsg = (
-                f"{sample_field} is not a valid obs variable, and this is a"
-                " droplet experiment. This variable required to identify"
-                " cells from different samples, please define it correctly in"
-                " the config."
-            )
-            raise Exception(errmsg)
-
-        cell_to_library = pd.DataFrame(
-            {"cell": adata.obs_names, "library": adata.obs[sample_field]}
-        )
-        cell_to_library.to_csv(
-            f"{bundle_dir}/{subdir}/cell_to_library.txt",
-            sep="\t",
-            header=False,
-            index=False,
-        )
-
-        manifest = set_manifest_value(
-            manifest,
-            "cell_to_library",
-            f"{subdir}/cell_to_library.txt",
-            subdir,
-        )
+    write_cell_library_mapping(
+        manifest=manifest,
+        bundle_dir=f"{bundle_dir}",
+        adata=adata,
+        config=config,
+        matrix=subdir,
+    )
 
     manifest = set_manifest_value(
-        manifest, "mtx_matrix_content", f"{subdir}/matrix.mtx.gz", subdir
+        manifest,
+        "mtx_matrix_content",
+        f"matrices/{subdir}/matrix.mtx.gz",
+        subdir,
     )
     manifest = set_manifest_value(
-        manifest, "mtx_matrix_cols", f"{subdir}/barcodes.tsv.gz", subdir
+        manifest,
+        "mtx_matrix_cols",
+        f"matrices/{subdir}/barcodes.tsv.gz",
+        subdir,
     )
     manifest = set_manifest_value(
-        manifest, "mtx_matrix_rows", f"{subdir}/genes.tsv.gz", subdir
+        manifest, "mtx_matrix_rows", f"matrices/{subdir}/genes.tsv.gz", subdir
     )
 
 
@@ -706,7 +883,7 @@ def write_gene_metadata(
 ):
     print("Writing var(gene) metadata")
 
-    genemeta_filename = f"{bundle_dir}/reference/gene_annotation.txt"
+    genemeta_filename = "reference/gene_annotation.txt"
     pathlib.Path(f"{bundle_dir}/reference").mkdir(parents=True, exist_ok=True)
 
     nonmeta_var_patterns = [
@@ -725,13 +902,13 @@ def write_gene_metadata(
     genemeta_cols = [x for x in adata.var.columns if x not in nonmeta_cols]
 
     adata.var[genemeta_cols].to_csv(
-        genemeta_filename,
+        f"{bundle_dir}/{genemeta_filename}",
         sep="\t",
         header=True,
         index=True,
         index_label="gene_id",
     )
-    manifest = set_manifest_value(manifest, "cell_metadata", genemeta_filename)
+    manifest = set_manifest_value(manifest, "gene_metadata", genemeta_filename)
 
 
 # Write cell metadata, including for curation as mage-tab
@@ -748,23 +925,26 @@ def write_cell_metadata(
 ):
     """Given obs slot definitions from a config file, write cell metadata to a file.
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> egconfig = load_doc(example_config_file)
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_cell_metadata(
     ...    manifest=dict(),
     ...    adata=adata,
-    ...    bundle_dir='test_bundle',
+    ...    bundle_dir=test_bundle,
     ...    config=egconfig,
     ...    kind="curation",
     ...    write_premagetab=True)
     Writing obs metadata of kind: curation
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     print(f"Writing obs metadata of kind: {kind}")
     cellmeta_filename = f"{exp_name}.cell_metadata.tsv"
     presdrf_filename = f"mage-tab/{exp_name}.presdrf.txt"
     precells_filename = f"mage-tab/{exp_name}.precells.txt"
-    pathlib.Path(f"{bundle_dir}/mage-tab").mkdir(parents=True, exist_ok=True)
 
     cell_metadata, run_metadata, cell_specific_metadata = derive_metadata(
         adata, config=config, kind=None
@@ -782,6 +962,9 @@ def write_cell_metadata(
     manifest = set_manifest_value(manifest, "cell_metadata", cellmeta_filename)
 
     if kind == "curation" and write_premagetab:
+        pathlib.Path(f"{bundle_dir}/mage-tab").mkdir(
+            parents=True, exist_ok=True
+        )
         if config["droplet"]:
 
             run_metadata.to_csv(
@@ -828,6 +1011,9 @@ def write_obsm_from_adata(
     """
     Write a single dimension reduction from the specified slot
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_obsm_from_adata(
     ...     manifest = dict(),
@@ -835,8 +1021,9 @@ def write_obsm_from_adata(
     ...     obsm_name='X_umap_neighbors_n_neighbors_3',
     ...     embedding_type='umap',
     ...     parameterisation='',
-    ...     bundle_dir='test_bundle')
+    ...     bundle_dir=test_bundle)
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_3
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     print(f".. Writing dimension reduction from slot: {obsm_name}")
@@ -870,11 +1057,14 @@ def write_markers_from_adata(
     """
     Write marker tables with p values etc from .uns
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> egconfig = load_doc(example_config_file)
     >>> adata = sc.read(scxa_h5ad_test)
     >>> write_markers_from_adata(
     ...    manifest=dict(),
-    ...    bundle_dir='test_bundle',
+    ...    bundle_dir=test_bundle,
     ...    adata=adata,
     ...    config=egconfig,
     ...    write_marker_stats=True,
@@ -885,6 +1075,7 @@ def write_markers_from_adata(
     ..limiting stats report to top 5 differential genes
     ..calculating summary for cell grouping louvain_resolution_1.0
     ..limiting stats report to top 5 differential genes
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     print("Writing markers and statistics")
@@ -949,43 +1140,50 @@ def write_markers_from_adata(
     # Now make summary statstics if we have an appropriate matrix
 
     if write_marker_stats and "load_to_scxa_db" in config["matrices"]:
+        if MISSING in str(config["matrices"]["load_to_scxa_db"]):
+            print(
+                "load_to_scxa_db not set in config, can't calculate marker"
+                " stats"
+            )
+        else:
+            matrix_for_stats = config["matrices"]["load_to_scxa_db"]
+            matrix_for_stats_name = [
+                x["name"]
+                for x in config["matrices"]["entries"]
+                if x["slot"] == matrix_for_stats
+            ][0]
 
-        matrix_for_stats = config["matrices"]["load_to_scxa_db"]
-        matrix_for_stats_name = [
-            x["name"]
-            for x in config["matrices"]["entries"]
-            if x["slot"] == matrix_for_stats
-        ][0]
+            # Add mean and median for cell groups to the anndata
 
-        # Add mean and median for cell groups to the anndata
+            calculate_summary_stats(
+                adata,
+                marker_groupings,
+                matrix=matrix_for_stats,
+            )
 
-        calculate_summary_stats(
-            adata,
-            marker_groupings,
-            matrix=matrix_for_stats,
-        )
+            marker_summary = pd.concat(
+                [
+                    make_markers_summary(
+                        adata,
+                        config["matrices"]["load_to_scxa_db"],
+                        cell_grouping,
+                        de_table,
+                        max_rank=max_rank_for_stats,
+                        cell_group_kind=cell_group_kind,
+                    )
+                    for cell_grouping, de_table in de_tables.items()
+                ]
+            )
+            statsfile = f"{matrix_for_stats_name}_stats.csv"
 
-        marker_summary = pd.concat(
-            [
-                make_markers_summary(
-                    adata,
-                    config["matrices"]["load_to_scxa_db"],
-                    cell_grouping,
-                    de_table,
-                    max_rank=max_rank_for_stats,
-                    cell_group_kind=cell_group_kind,
-                )
-                for cell_grouping, de_table in de_tables.items()
-            ]
-        )
-        statsfile = f"{bundle_dir}/{matrix_for_stats_name}_stats.csv"
-
-        marker_summary.to_csv(
-            statsfile, index=False, quoting=csv.QUOTE_NONNUMERIC
-        )
-        manifest = set_manifest_value(
-            manifest, "marker_stats", statsfile, matrix_for_stats
-        )
+            marker_summary.to_csv(
+                f"{bundle_dir}/{statsfile}",
+                index=False,
+                quoting=csv.QUOTE_NONNUMERIC,
+            )
+            manifest = set_manifest_value(
+                manifest, "marker_stats", statsfile, matrix_for_stats
+            )
 
 
 def make_markers_summary(
@@ -1113,7 +1311,7 @@ def read_file_manifest(bundle_dir=None, manifest_file=None):
     Read a manifest into a dictionary, or initialise an empty one
 
     >>> read_file_manifest('test_bundle', manifest_file = example_manifest) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
-    OrderedDict([('cell_metadata', OrderedDict([('', 'NONAME.cell_metadata.tsv')])), ...
+    OrderedDict([('cell_metadata', OrderedDict([('', 'E-MTAB-6077.cell_metadata.tsv')])), ...
     """
 
     manifest_file = (
@@ -1135,12 +1333,56 @@ def read_file_manifest(bundle_dir=None, manifest_file=None):
     return manifest
 
 
+def reconcile_manifest_bundle(bundle_dir, manifest):
+
+    """
+    Remove files in a bundle directory which are absent from the manifest
+
+    >>> exp_name='E-MTAB-6077'
+    >>> shutil.rmtree(exp_name, ignore_errors=True)
+    >>> shutil.copytree(f"{example_bundle_dir}/{exp_name}", exp_name)
+    'E-MTAB-6077'
+    >>> manifest = read_file_manifest(manifest_file = f"{exp_name}/MANIFEST")
+    >>> reconcile_manifest_bundle(exp_name, manifest)
+    >>> shutil.rmtree(exp_name, ignore_errors=True)
+    """
+
+    cwd = os.getcwd()
+    manifest_files = [
+        item
+        for sublist in [list(x.values()) for x in manifest.values()]
+        for item in sublist
+    ]
+    os.chdir(bundle_dir)
+    bundle_files = [
+        x for x in glob.glob("**", recursive=True) if not os.path.isdir(x)
+    ]
+
+    # Remove any files not in the manifest
+
+    for non_manifest_file in [
+        x for x in bundle_files if x not in manifest_files
+    ]:
+        if non_manifest_file != "MANIFEST":
+            print(f"Cleaning up {non_manifest_file}")
+            os.remove(non_manifest_file)
+    os.chdir(cwd)
+
+    # Finally clean up any empty directories
+
+    remove_empty_dirs(bundle_dir)
+
+
 def write_file_manifest(bundle_dir, manifest):
     """
     Write a manifest into a dictionary
 
+    >>> test_bundle='atlas-anndata-test'
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
+    >>> pathlib.Path(test_bundle).mkdir()
     >>> manifest = read_file_manifest(manifest_file = example_manifest)
-    >>> write_file_manifest('test_bundle', manifest)
+    >>> write_file_manifest(test_bundle, manifest)
+    >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
     manifest_file = f"{bundle_dir}/MANIFEST"

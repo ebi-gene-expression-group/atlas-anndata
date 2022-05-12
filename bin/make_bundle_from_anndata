@@ -1,13 +1,81 @@
 #!/usr/bin/env python
 
 import click
+import os
 from scanpy_scripts.click_utils import CommaSeparatedText
 
 
 @click.command()
-@click.argument("anndata_file", type=click.Path(exists=True))
-@click.argument("anndata_config", type=click.Path(exists=True))
-@click.argument("bundle_dir", type=click.Path(dir_okay=True))
+@click.argument("exp_name")
+@click.argument(
+    "step",
+    type=click.Choice(
+        ["init", "init_magetab", "inject_magetab", "final"],
+        case_sensitive=False,
+    ),
+)
+@click.option(
+    "--anndata-file",
+    type=click.Path(exists=True),
+    default=None,
+    help=(
+        "For the 'init' stage, specify a path to a file of the  annData hdf5"
+        " specification, with all necessaryinformation for SCXA."
+    ),
+)
+@click.option(
+    "--bundle_dir",
+    type=click.Path(dir_okay=True),
+    default=os.getcwd(),
+    help=(
+        "A directory under which bundle directories should be created."
+        " Defaults to the current working directory."
+    ),
+)
+@click.option(
+    "--atlas-style",
+    default=False,
+    is_flag=True,
+    help="Assume the tight conventions from SCXA, e.g. on .obsm slot naming?",
+)
+@click.option(
+    "--analysis-versions-file",
+    type=click.Path(exists=True),
+    help=(
+        "A four-column tab-delimited file with analys, analysis, version and"
+        " citation"
+    ),
+)
+@click.option(
+    "--droplet",
+    default=False,
+    is_flag=True,
+    help="Is this a droplet experiment?",
+)
+@click.option(
+    "--gene-id-field",
+    default="index",
+    help="Field in .var where gene ID is stored.",
+)
+@click.option(
+    "--gene-name-field",
+    default="gene_name",
+    help="Field in .var where gene name (symbol) is stored.",
+)
+@click.option(
+    "--sample-field",
+    default="sample",
+    help="Field in .obs which separates cells from different libraries.",
+)
+@click.option(
+    "--default-clustering",
+    help=(
+        "Of the unsupervised clusterings, which clustering should be set as"
+        " the default? If not set, the middle (or first middle) clustering"
+        " will be selected, or if --atlas-style is set, this will be the"
+        " clustering corresponding to a resolution of 1."
+    ),
+)
 @click.option(
     "--max-rank-for-stats",
     type=click.INT,
@@ -27,26 +95,6 @@ from scanpy_scripts.click_utils import CommaSeparatedText
         " .layers(). The matrix must be appropriate for Scanpy's"
         " tl.rank_genes_groups() method, usually meaning filtered, normalised"
         " and log transformed, but without additional scaling."
-    ),
-)
-@click.option(
-    "--no-write-matrices",
-    "write_matrices",
-    default=True,
-    is_flag=True,
-    help=(
-        "Use to disable writing of matrices to bundle, for example in early"
-        " metadata evaluation"
-    ),
-)
-@click.option(
-    "--write-premagetab",
-    default=False,
-    is_flag=True,
-    help=(
-        "Should we write pre-magetab files for curation by SCXA team? If not,"
-        " we assume curation is done, and we will look for curated metadata"
-        " via the the exp_name parameter"
     ),
 )
 @click.option(
@@ -96,23 +144,29 @@ from scanpy_scripts.click_utils import CommaSeparatedText
         " cell-wise sum in the given matrix."
     ),
 )
-def make_bundle(*args, **kwargs):
+def make_bundle(step, *args, **kwargs):
 
     """Build a bundle directory compatible with Single Cell Expression Atlas
     (SCXA) build proceseses
 
     \b
-    anndata_file   - A file of the annData hdf5 specification, with all
-                     necessaryinformation for SCXA.
-    anndata_config - A config file generated with
-                     `make_starting_config_from_anndata` and manually edited to
-                     supply necessary information.
-    bundle_dir     - A directory in which to create the bundle.
+    exp_name       - Specify an Expression Atlas identifier for this experiment.
+    step           - Specify the bundle creation step. One of:
+                        * 'init': start a bundle based on anndata file content
+                        * 'init_magetab': create starting MAGE-TAB files as a
+                          basis for curation, having checked and refined
+                          configuration at the 'init' stage.
+                        * 'inject_magetab': With curation done, read metadata
+                          from the scxa-metadata repo, and modify bundle
+                          configuration and annData object accordingly.
+                        * 'final': Having made any refinements to the field
+                          configuration modified by 'inject_magetab', produce the
+                          final bundle.
     """
 
     from atlas_anndata import make_bundle_from_anndata
 
-    make_bundle_from_anndata(*args, **kwargs)
+    make_bundle_from_anndata(step=step, *args, **kwargs)
 
 
 if __name__ == "__main__":

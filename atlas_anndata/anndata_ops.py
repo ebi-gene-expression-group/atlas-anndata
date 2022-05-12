@@ -107,7 +107,7 @@ def overwrite_obs_with_magetab(
     }
     if "cell_to_library" in manifest:
         snakemake_config["cell_to_library"] = (
-            f"{bundle_dir}/%s" % list(manifest["cell_to_library"].values())[0]
+            f"{bundle_dir}/%s" % manifest["cell_to_library"][""]
         )
 
     result = snakemake.snakemake(
