@@ -4,62 +4,35 @@ This is an example walkthrough for processing externally analysed data for Singl
 
 ## Process outline
 
-The steps required to produce a bundle suitable are:
-
- 1. Process the annData file to determine what information is available. Store a summary of this information in a YAML-format configuration file. 
- 2. Generate bundle files (1st time) based on the starting config files in 1. 
- 3. Examine the cell metadata files and use that information to refine configuration related to cell metadata. This includes flagging fields that should be included in the pre-MAGE-TAB files, and for droplet experiments, finding the field that separates cells from different libraries. Also check the gene metadata at this stage, to check that Ensembl gene identifiers are available.
- 4. Generate bundle files (2nd time) based on configuration refined in 3.. This will include pre-MAGE-TAB files suitable as a basis for curation.
- 5. Undertake curation. This will include standard curation processes used for SCXA-analysed experiments, and additional steps to derive further information we need, such as the nature of any included matrices and reference transcriptome used. At this point the YAML-format configuration should be complete, and should be included in the scxa-metadata repo.
- 6. Generate the final bundle suitable for loading into SCXA.
+See [README](README.md)
 
 ## Test dataset
 
 We'll we working with an annData file available from the GTEx portal [here](https://gtexportal.org/home/datasets) ([dataset link](https://storage.googleapis.com/gtex_analysis_v9/snrna_seq_data/GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad)).
 
-## Step 1: produce a starting config
+## Step 1: initialise the bundle
+
+First, initialise the bundle to make a starting config and dump some useful info. The identifier selected for this dataset was `E-ANND-2` so the command is:
 
 ```
-make_starting_config_from_anndata --droplet GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad gtex_sc.yaml
+make_bundle_from_anndata --anndata-file GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad --droplet E-ANND-2 init
 ```
 
-This will produce a starting point of a config file that will eventually be used to make a final SCXA bundle. 
-
-Fields flagged with 'FILL ME' will ultimately need completion, or else removeal of their parent entries, but that will occur in later steps.
-
-## Step 2: first bundle run: write basic info
-
-Without any editing of the config file we can output the basic info:
+This produces a set of files like:
 
 ```
-make_bundle_from_anndata --write-premagetab GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad gtex_sc.yaml gtex_sc_bundle
-``` 
-
-The output bundle directory is structured like:
-
-```
-tree gtex_sc_bundle/
-gtex_sc_bundle/
-├── clusters_for_bundle.txt
-├── mage-tab
-│   ├── NONAME.precells.txt
-│   └── NONAME.presdrf.txt
-├── NONAME.cell_metadata.tsv
-├── NONAME.project.h5ad
-├── pca.tsv
-├── reference
-│   └── gene_annotation.txt
-├── umap_tissue.tsv
-├── umap.tsv
-├── vae_mean_tissue.tsv
-├── vae_mean.tsv
-├── vae_samples.tsv
-└── vae_var.tsv
-
-2 directories, 13 files
+E-ANND-2/
+├── anndata-config.yaml
+├── E-ANND-2.cell_metadata.tsv
+├── E-ANND-2.project.h5ad
+├── MANIFEST
+└── reference
+    └── gene_annotation.txt
 ```
 
-## Step 3: refine configuration for curation
+We will be editing anndata-config.yaml as we progress through subsequent steps, at a minimum completing fields flagged with 'FILL ME' or removing their parent entries, but that will occur in later steps.
+
+## Step 2: refine configuration for curation
 
 #### Identify correct gene ID and gene name fields
 
@@ -209,7 +182,7 @@ Referring to [the paper](https://www.biorxiv.org/content/10.1101/2021.07.19.4529
 
 ### Flag curated fields
 
-Cell meta data from annData objects is a mixtrue of any input sample metadata provided by the author, plus annotations added over the course of analysis. The latter may not be appropriate for inclusion in the metadata in SCXA. You can edit the `cell_metadata` section of gtex_sc.yaml:
+Cell meta data from annData objects is a mixtrue of any input sample metadata provided by the author, plus annotations added over the course of analysis. The latter may not be appropriate for inclusion in the metadata in SCXA. You can edit the `cell_metadata` section of anndata-config.yaml:
 
 ```
 ...
@@ -231,23 +204,64 @@ cell_meta:
 ... and change the `kind` to `analysis` for any field that should not be included in the `precells` and `presdrf`. 
 
 
-## Step 4: second bundle run: re-write bundle starting metadata for curation
+## Step 3: initialise the MAGE-TAB files
+
 
 With the updated configuration in hand we can generate a bundle with pre-MAGE-TAB data for curation:
 
 ```
-make_bundle_from_anndata --write-premagetab GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad gtex_sc.yaml gtex_sc_bundle
+make_bundle_from_anndata E-ANND-2 init_magetab
 ``` 
 
-This will produce the pre-MAGE-TAB files at `/mage-tab/NONAME.presdrf.txt` in the bundle.
+This will produce the pre-MAGE-TAB files at `/mage-tab/E-ANND-2.presdrf.txt` in the bundle:
 
-## Step 5: Do curation:
+```
+E-ANND-2/
+├── anndata-config.yaml
+├── cell_to_library.txt
+├── clusters_for_bundle.txt
+├── E-ANND-2.cell_metadata.tsv
+├── E-ANND-2.project.h5ad
+├── mage-tab
+│   ├── E-ANND-2.precells.txt
+│   └── E-ANND-2.presdrf.txt
+├── MANIFEST
+├── matrices
+├── pca.tsv
+├── reference
+│   └── gene_annotation.txt
+├── umap_tissue.tsv
+├── umap.tsv
+├── vae_mean_tissue.tsv
+├── vae_mean.tsv
+├── vae_samples.tsv
+└── vae_var.tsv
 
-### Regular curation efforts
+3 directories, 16 files
+```
+
+## Step 4: Do curation:
 
 The pre-MAGE-TAB can now be used to start curation by the curation team.
 
-### Gather other missing info needed before final bundle creation
+## Step 5: Embed curated metadata in the modified annData object
+
+```
+make_bundle_from_anndata --conda-prefix CONDA_PREFIX  E-ANND-2 inject_magetab
+```
+
+... where `CONDA_PREFIX` is a root directory in which Conda environments can be created while processing the curated MAGE-TAB files.
+
+If the metadata is not yet on the master branch of `scxa-metadata`, specify the feature branch like:
+
+
+```
+make_bundle_from_anndata --scxa-metadata-branch gtex_sc E-ANND-2 inject_magetab
+```
+
+This step will take a little while to run as it downloads the curated metadata and does SDRF condensation etc before tranforming and baking the data back into the annData object. The end result of this will be that the annData file will have any information from curation incorporated into its `.obs`, and `anndata-config.yaml` will have corresponding field definitions added.
+
+## 6.Gather other missing info needed before final bundle creation
 
 Unlike our standard submission pathways, for pre-analysed data we need additional information before the data are ingested for SCXA, which must currently be provided via the configuration YAML. The completed config from the following steps should be added to the `scxa-metadata` alongside the MAGE-TAB files.
 
@@ -330,15 +344,26 @@ matrices:
 
 The status flags for each matrix MUST be set correctly, and a name supplied (which will be used for the exported matrix file). Where information cannot be discovered, the whole entry for a matrix should be removed.
 
+The `load_to_scxa_db` slot is important, as it will dicate the matrix which is loaded, which will be the same one used for any marker detection. 
+  
+##### Flag .obs fields for markers
 
-## Step 6: third bundle run: write final bundle from completed YAML file
+Provided that `load_to_scxa_db` is speicified and the corresponding matrix matches the necessary criteria, fields in the `anndata-config.yaml` can be flagged (by flipping the 'markers' flag for any given field definition, e.g.:
 
 ```
-make_bundle_from_anndata --exp-name <exp name> GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad gtex_sc.yaml --conda-prefix <conda prefix> gtex_sc_bundle
+  - default: false
+    kind: curation
+    markers: false <<< Maybe you'd flip this
+    parameters: {}
+    slot: Cell types level 2
 ```
 
-This will pull the curated metadata from the `scxa-metadata` repo, condense the SDRF (adding ontology terms) and re-generated cell-wise annotations that will be used to enrich the content of the annData file. This workflow uses conda to pull the relevant software dependencies.
+## Step 7: final bundle run: write final bundle from completed YAML file
 
+With all missing configuration completed, we can finalise the bundle:
 
- - `exp name` is the E- accession generated for the experiment in curation
- - `conda prefix` is location conda environments will be stored. 
+```
+make_bundle_from_anndata E-ANND-2 final
+```
+
+This will incorporate any final configuration tweaks added in step 6, calculate markers where possible, and output the completed bundle ready for loading to SCXA.
