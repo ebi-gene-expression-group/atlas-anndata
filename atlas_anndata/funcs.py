@@ -268,6 +268,7 @@ def make_bundle_from_anndata(
     scxa_db_scale=1000000,
     atlas_style=False,
     default_clustering=None,
+    write_matrices=False,
     **kwargs,
 ):
 
@@ -277,7 +278,7 @@ def make_bundle_from_anndata(
     >>> shutil.rmtree(exp_name, ignore_errors=True)
     >>> shutil.copytree(f"{example_bundle_dir}/{exp_name}", exp_name)
     'E-MTAB-6077'
-    >>> make_bundle_from_anndata(exp_name = exp_name, step = 'final') # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+    >>> make_bundle_from_anndata(exp_name = exp_name, step = 'final', write_matrices = True) # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
     Validating config against .../config_schema.yaml
     Config YAML file successfully validated
     Now checking config against anndata file
@@ -356,6 +357,7 @@ def make_bundle_from_anndata(
             config=config,
         )
 
+    if step == "final" or write_matrices:
         write_matrices_from_adata(
             manifest=manifest,
             bundle_dir=bundle_subdir,
