@@ -144,6 +144,17 @@ from scanpy_scripts.click_utils import CommaSeparatedText
         " cell-wise sum in the given matrix."
     ),
 )
+@click.option(
+    "--write-matrices",
+    default=False,
+    is_flag=True,
+    help=(
+        "Write matrices to the bundle at non-final steps? This must"
+        " necessarily happen in the final matrix bundling, but it's a slow"
+        " process so is not normally done at the previous steps. Activate this"
+        " flag to override that behaviour and write regardless."
+    ),
+)
 def make_bundle(step, *args, **kwargs):
 
     """Build a bundle directory compatible with Single Cell Expression Atlas
