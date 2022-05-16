@@ -1479,7 +1479,7 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7']
     ..louvain_resolution_0.7
     Completed summary stats calculation
-    >>> adata.varm['mean_normalised_louvain_resolution_0.7'] # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE 
+    >>> adata.varm['mean_normalised_louvain_resolution_0.7'] # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
                                  0           1
     ENSDARG00000000001    5.210635    4.868471
     ENSDARG00000000002    5.107658    0.254911
@@ -1487,7 +1487,7 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
     ENSDARG00000000019   34.447536    9.438827
     ENSDARG00000000068   33.625522    1.097745
     ...
-    >>> adata.varm['median_normalised_louvain_resolution_0.7'] # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE 
+    >>> adata.varm['median_normalised_louvain_resolution_0.7'] # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
                              0           1
     ENSDARG00000000001    0.000000    0.000000
     ENSDARG00000000002    0.000000    0.000000
