@@ -17,6 +17,8 @@ import math
 import csv
 import numpy as np
 import glob
+import scipy as sp
+import sklearn as skl
 
 from .anndata_config import (
     describe_matrices,
@@ -1467,7 +1469,17 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
         f"Calculating summary stats for {matrix} matrix, cell groups defined"
         f" by {obs}"
     )
+
+    def matrix_summary(matrix, summary_type):
+        if summary_type == "mean":
+            return matrix.mean(axis=0, dtype=np.float64)
+        else:
+            return skl.utils.sparsefuncs.csc_median_axis_0(
+                sp.sparse.csc_matrix(matrix)
+            )
+
     for ob in obs:
+        print(f"..{ob}")
         layer = None
         use_raw = False
 
@@ -1477,13 +1489,22 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
         elif matrix in adata.layers:
             layer = matrix
 
-        genedf = sc.get.obs_df(
-            adata,
-            keys=[ob, *list(adata.var_names)],
-            layer=layer,
-            use_raw=use_raw,
-        )
-        grouped = genedf.groupby(ob)
-        mean, median = grouped.mean(), grouped.median()
-        adata.varm[f"mean_{matrix}_{ob}"] = mean.transpose()
-        adata.varm[f"median_{matrix}_{ob}"] = median.transpose()
+        for summary_type in ["mean", "median"]:
+            adata.varm[f"{summary_type}_{matrix}_{ob}"] = pd.DataFrame(
+                [
+                    np.ravel(
+                        matrix_summary(
+                            sc.get._get_obs_rep(
+                                adata[adata.obs[ob] == group],
+                                layer=layer,
+                                use_raw=use_raw,
+                            ),
+                            summary_type,
+                        )
+                    )
+                    for group in adata.obs[ob].cat.categories
+                ],
+                columns=adata.var_names,
+            ).transpose()
+
+    print("Completed summary stats calculation")
