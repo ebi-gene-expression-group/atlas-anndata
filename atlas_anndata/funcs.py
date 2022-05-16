@@ -1170,7 +1170,7 @@ def write_markers_from_adata(
                 matrix=matrix_for_stats,
             )
 
-            print(f"Compiling summaries for cell groupings")
+            print("Compiling summaries for cell groupings")
             marker_summary = pd.concat(
                 [
                     make_markers_summary(
@@ -1184,7 +1184,7 @@ def write_markers_from_adata(
                     for cell_grouping, de_table in de_tables.items()
                 ]
             )
-            print(f"Done compiling summaries for cell groupings")
+            print("Done compiling summaries for cell groupings")
             statsfile = f"{matrix_for_stats_name}_stats.csv"
 
             marker_summary.to_csv(
