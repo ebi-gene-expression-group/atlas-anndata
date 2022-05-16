@@ -1516,6 +1516,7 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
                     for group in adata.obs[ob].cat.categories
                 ],
                 columns=adata.var_names,
+                index=adata.obs[ob].cat.categories,
             ).transpose()
 
     print("Completed summary stats calculation")
