@@ -309,10 +309,15 @@ def make_bundle_from_anndata(
     Writing obs (unsupervised clusterings)
     Writing markers and statistics
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7', 'louvain_resolution_1.0']
+    ..louvain_resolution_0.7
+    ..louvain_resolution_1.0
+    Completed summary stats calculation
+    Compiling summaries for cell groupings
     ..calculating summary for cell grouping louvain_resolution_0.7
     ..limiting stats report to top 5 differential genes
     ..calculating summary for cell grouping louvain_resolution_1.0
     ..limiting stats report to top 5 differential genes
+    Done compiling summaries for cell groupings
     Writing dimension reductions
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_3
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
@@ -1165,6 +1170,7 @@ def write_markers_from_adata(
                 matrix=matrix_for_stats,
             )
 
+            print(f"Compiling summaries for cell groupings")
             marker_summary = pd.concat(
                 [
                     make_markers_summary(
@@ -1178,6 +1184,7 @@ def write_markers_from_adata(
                     for cell_grouping, de_table in de_tables.items()
                 ]
             )
+            print(f"Done compiling summaries for cell groupings")
             statsfile = f"{matrix_for_stats_name}_stats.csv"
 
             marker_summary.to_csv(
@@ -1463,6 +1470,8 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
     ...    [ marker_grouping ],
     ...    matrix='normalised')
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7']
+    ..louvain_resolution_0.7
+    Completed summary stats calculation
     """
 
     print(
