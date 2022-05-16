@@ -1213,6 +1213,8 @@ def make_markers_summary(
     ...    [ marker_grouping ],
     ...    matrix='normalised')
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7']
+    ..louvain_resolution_0.7
+    Completed summary stats calculation
     >>> make_markers_summary(
     ...    adata,
     ...    egconfig["matrices"]["load_to_scxa_db"],
