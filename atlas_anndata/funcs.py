@@ -1080,10 +1080,15 @@ def write_markers_from_adata(
     ...    max_rank_for_stats=5)
     Writing markers and statistics
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7', 'louvain_resolution_1.0']
+    ..louvain_resolution_0.7
+    ..louvain_resolution_1.0
+    Completed summary stats calculation
+    Compiling summaries for cell groupings
     ..calculating summary for cell grouping louvain_resolution_0.7
     ..limiting stats report to top 5 differential genes
     ..calculating summary for cell grouping louvain_resolution_1.0
     ..limiting stats report to top 5 differential genes
+    Done compiling summaries for cell groupings
     >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
@@ -1474,6 +1479,22 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7']
     ..louvain_resolution_0.7
     Completed summary stats calculation
+    >>> adata.varm['mean_normalised_louvain_resolution_0.7'] # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE 
+                                 0           1
+    ENSDARG00000000001    5.210635    4.868471
+    ENSDARG00000000002    5.107658    0.254911
+    ENSDARG00000000018  240.056006  319.279625
+    ENSDARG00000000019   34.447536    9.438827
+    ENSDARG00000000068   33.625522    1.097745
+    ...
+    >>> adata.varm['median_normalised_louvain_resolution_0.7'] # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE 
+                             0           1
+    ENSDARG00000000001    0.000000    0.000000
+    ENSDARG00000000002    0.000000    0.000000
+    ENSDARG00000000018  141.642776  159.815002
+    ENSDARG00000000019    0.000000    0.000000
+    ENSDARG00000000068    0.000000    0.000000
+    ...
     """
 
     print(
