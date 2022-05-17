@@ -1507,7 +1507,7 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
             return matrix.mean(axis=0, dtype=np.float64)
         else:
             return skl.utils.sparsefuncs.csc_median_axis_0(
-                sp.sparse.csc_matrix(matrix)
+                sp.sparse.csc_matrix(matrix, dtype=np.float64)
             )
 
     for ob in obs:
