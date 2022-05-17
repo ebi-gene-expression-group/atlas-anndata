@@ -106,7 +106,7 @@ Probably the simplest install method is with Conda (or Mamba). e.g. to create a 
 conda create -n atlas-anndata atlas-anndata
 ```
 
-Install it from PyPi like:
+OR install it from PyPi like:
 
 ```
 pip install atlas-anndata
