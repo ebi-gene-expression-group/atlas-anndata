@@ -17,6 +17,8 @@ import math
 import csv
 import numpy as np
 import glob
+import scipy as sp
+import sklearn as skl
 
 from .anndata_config import (
     describe_matrices,
@@ -307,10 +309,15 @@ def make_bundle_from_anndata(
     Writing obs (unsupervised clusterings)
     Writing markers and statistics
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7', 'louvain_resolution_1.0']
+    ..louvain_resolution_0.7
+    ..louvain_resolution_1.0
+    Completed summary stats calculation
+    Compiling summaries for cell groupings
     ..calculating summary for cell grouping louvain_resolution_0.7
     ..limiting stats report to top 5 differential genes
     ..calculating summary for cell grouping louvain_resolution_1.0
     ..limiting stats report to top 5 differential genes
+    Done compiling summaries for cell groupings
     Writing dimension reductions
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_3
     .. Writing dimension reduction from slot: X_umap_neighbors_n_neighbors_10
@@ -1073,10 +1080,15 @@ def write_markers_from_adata(
     ...    max_rank_for_stats=5)
     Writing markers and statistics
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7', 'louvain_resolution_1.0']
+    ..louvain_resolution_0.7
+    ..louvain_resolution_1.0
+    Completed summary stats calculation
+    Compiling summaries for cell groupings
     ..calculating summary for cell grouping louvain_resolution_0.7
     ..limiting stats report to top 5 differential genes
     ..calculating summary for cell grouping louvain_resolution_1.0
     ..limiting stats report to top 5 differential genes
+    Done compiling summaries for cell groupings
     >>> shutil.rmtree(test_bundle, ignore_errors=True)
     """
 
@@ -1163,6 +1175,7 @@ def write_markers_from_adata(
                 matrix=matrix_for_stats,
             )
 
+            print("Compiling summaries for cell groupings")
             marker_summary = pd.concat(
                 [
                     make_markers_summary(
@@ -1176,6 +1189,7 @@ def write_markers_from_adata(
                     for cell_grouping, de_table in de_tables.items()
                 ]
             )
+            print("Done compiling summaries for cell groupings")
             statsfile = f"{matrix_for_stats_name}_stats.csv"
 
             marker_summary.to_csv(
@@ -1204,6 +1218,8 @@ def make_markers_summary(
     ...    [ marker_grouping ],
     ...    matrix='normalised')
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7']
+    ..louvain_resolution_0.7
+    Completed summary stats calculation
     >>> make_markers_summary(
     ...    adata,
     ...    egconfig["matrices"]["load_to_scxa_db"],
@@ -1461,13 +1477,41 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
     ...    [ marker_grouping ],
     ...    matrix='normalised')
     Calculating summary stats for normalised matrix, cell groups defined by ['louvain_resolution_0.7']
+    ..louvain_resolution_0.7
+    Completed summary stats calculation
+    >>> adata.varm['mean_normalised_louvain_resolution_0.7'] # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+                                 0           1
+    ENSDARG00000000001    5.210635    4.868471
+    ENSDARG00000000002    5.107658    0.254911
+    ENSDARG00000000018  240.056006  319.279625
+    ENSDARG00000000019   34.447536    9.438827
+    ENSDARG00000000068   33.625522    1.097745
+    ...
+    >>> adata.varm['median_normalised_louvain_resolution_0.7'] # doctest:+ELLIPSIS +NORMALIZE_WHITESPACE
+                             0           1
+    ENSDARG00000000001    0.000000    0.000000
+    ENSDARG00000000002    0.000000    0.000000
+    ENSDARG00000000018  141.642776  159.815002
+    ENSDARG00000000019    0.000000    0.000000
+    ENSDARG00000000068    0.000000    0.000000
+    ...
     """
 
     print(
         f"Calculating summary stats for {matrix} matrix, cell groups defined"
         f" by {obs}"
     )
+
+    def matrix_summary(matrix, summary_type):
+        if summary_type == "mean":
+            return matrix.mean(axis=0, dtype=np.float64)
+        else:
+            return skl.utils.sparsefuncs.csc_median_axis_0(
+                sp.sparse.csc_matrix(matrix, dtype=np.float64)
+            )
+
     for ob in obs:
+        print(f"..{ob}")
         layer = None
         use_raw = False
 
@@ -1477,13 +1521,23 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
         elif matrix in adata.layers:
             layer = matrix
 
-        genedf = sc.get.obs_df(
-            adata,
-            keys=[ob, *list(adata.var_names)],
-            layer=layer,
-            use_raw=use_raw,
-        )
-        grouped = genedf.groupby(ob)
-        mean, median = grouped.mean(), grouped.median()
-        adata.varm[f"mean_{matrix}_{ob}"] = mean.transpose()
-        adata.varm[f"median_{matrix}_{ob}"] = median.transpose()
+        for summary_type in ["mean", "median"]:
+            adata.varm[f"{summary_type}_{matrix}_{ob}"] = pd.DataFrame(
+                [
+                    np.ravel(
+                        matrix_summary(
+                            sc.get._get_obs_rep(
+                                adata[adata.obs[ob] == group],
+                                layer=layer,
+                                use_raw=use_raw,
+                            ),
+                            summary_type,
+                        )
+                    )
+                    for group in adata.obs[ob].cat.categories
+                ],
+                columns=adata.var_names,
+                index=adata.obs[ob].cat.categories,
+            ).transpose()
+
+    print("Completed summary stats calculation")
