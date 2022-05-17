@@ -1,4 +1,4 @@
-[![PyPI version fury.io](https://badge.fury.io/py/atlas-anndata.svg)](https://pypi.python.org/pypi/atlas-anndata/)
+[![Anaconda-Server Badge](https://anaconda.org/ebi-gene-expression-group/atlas-anndata/badges/installer/conda.svg)](https://anaconda.org/ebi-gene-expression-group/atlas-anndata) [![PyPI version fury.io](https://badge.fury.io/py/atlas-anndata.svg)](https://pypi.python.org/pypi/atlas-anndata/)
 [![Build Status](https://api.travis-ci.com/ebi-gene-expression-group/atlas-anndata.svg?branch=develop)](https://travis-ci.org/ebi-gene-expression-group/atlas-anndata)
 
 
@@ -98,7 +98,15 @@ The process is progressive, with information on an experiment gradulally being a
 
 ### 0. Install this package
 
-This repository contains a python packages which should be used to facilitate production of a bundle. Install it from PyPi like:
+This repository contains a python packages which should be used to facilitate production of a bundle. 
+
+Probably the simplest install method is with Conda (or Mamba). e.g. to create a new environment with the package:
+
+```
+conda create -n atlas-anndata atlas-anndata
+```
+
+OR install it from PyPi like:
 
 ```
 pip install atlas-anndata
