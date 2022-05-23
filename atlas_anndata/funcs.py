@@ -1256,7 +1256,7 @@ def make_markers_summary(
 
     print(f"..calculating summary for cell grouping {marker_grouping}")
     if not max_rank:
-        max_rank = markers_summary["rank"].max()
+        max_rank = de_table["rank"].max()
     else:
         print(f"..limiting stats report to top {max_rank} differential genes")
 
