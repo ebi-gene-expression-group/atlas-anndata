@@ -437,21 +437,25 @@ def calculate_markers(adata, config, matrix="X", use_raw=None):
             x for x in config["matrices"]["entries"] if x["slot"] == matrix
         ][0]
 
-        if (
-            matrix_description["scaled"]
-            or (not matrix_description["normalised"])
-            or (not matrix_description["log_transformed"])
+        if matrix_description["scaled"] or (
+            not matrix_description["normalised"]
         ):
             errmsg = (
                 "Some markers need calculation, but the matrix indicated"
                 f" ({matrix}) is not annotated in the input configuration as"
-                " normalised, log transformed and unscaled as we would need"
+                " normalised, and unscaled as we would need"
                 " for that. Please update annotations and/or perform matrix"
                 " transformations as required."
             )
             raise Exception(errmsg)
         elif matrix != "X":
             layer = matrix
+            use_raw = False
+
+        # rank_genes_groups "Expects logarithmized data.", so apply that transform if required
+
+        if not matrix_description["log_transformed"]:
+            sc.pp.log1p(adata, layer=layer)
 
         for mg in marker_groupings:
             if not obs_markers(adata, mg):
@@ -459,14 +463,17 @@ def calculate_markers(adata, config, matrix="X", use_raw=None):
                     f"Marker statistics not currently available for {mg},"
                     " recalculating with Scanpy..."
                 )
-                sc.tl.rank_genes_groups(
-                    adata,
-                    mg,
-                    method="wilcoxon",
-                    layer=layer,
-                    key_added="markers_" + mg,
-                    use_raw=use_raw,
-                )
+                try:
+                    sc.tl.rank_genes_groups(
+                        adata,
+                        mg,
+                        method="wilcoxon",
+                        layer=layer,
+                        key_added="markers_" + mg,
+                        use_raw=use_raw,
+                    )
+                except ValueError:
+                    print(f"Didn't get markers for {mg}")
 
     else:
         print("All marker sets detailed in config present and correct")

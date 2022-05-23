@@ -1255,42 +1255,41 @@ def make_markers_summary(
     """
 
     print(f"..calculating summary for cell grouping {marker_grouping}")
-
-    summary_stats = (
-        pd.concat(
-            [
-                adata.varm[f"mean_{layer}_{marker_grouping}"].melt(
-                    ignore_index=False
-                ),
-                adata.varm[f"median_{layer}_{marker_grouping}"].melt(
-                    ignore_index=False
-                ),
-            ],
-            axis=1,
-        )
-        .iloc[:, [0, 1, 3]]
-        .set_axis(
-            ["cluster_id", "mean_expression", "median_expression"], axis=1
-        )
-    )
-
-    new_colnames = {
-        "genes": "gene_id",
-        "cluster": "group_where_marker",
-        "pvals_adj": "marker_p_value",
-    }
+    if not max_rank:
+        max_rank = markers_summary["rank"].max()
+    else:
+        print(f"..limiting stats report to top {max_rank} differential genes")
 
     markers_summary = (
-        de_table.merge(summary_stats, left_on="genes", right_index=True)
+        de_table[de_table["rank"] <= (max_rank - 1)]
         .drop(["ref", "scores", "logfoldchanges", "pvals"], axis=1)
-        .rename(columns=new_colnames)
+        .merge(
+            pd.concat(
+                [
+                    adata.varm[f"mean_{layer}_{marker_grouping}"].melt(
+                        ignore_index=False
+                    ),
+                    adata.varm[f"median_{layer}_{marker_grouping}"].melt(
+                        ignore_index=False
+                    ),
+                ],
+                axis=1,
+            )
+            .iloc[:, [0, 1, 3]]
+            .set_axis(
+                ["cluster_id", "mean_expression", "median_expression"], axis=1
+            ),
+            left_on="genes",
+            right_index=True,
+        )
+        .rename(
+            columns={
+                "genes": "gene_id",
+                "cluster": "group_where_marker",
+                "pvals_adj": "marker_p_value",
+            }
+        )
     )
-
-    if max_rank:
-        print(f"..limiting stats report to top {max_rank} differential genes")
-        markers_summary = markers_summary[
-            markers_summary["rank"] <= (max_rank - 1)
-        ]
 
     # For unsupervised clusterings, record the grouping as k and increment the
     # group numbers so they start from 1
@@ -1523,7 +1522,7 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
 
         for summary_type in ["mean", "median"]:
             adata.varm[f"{summary_type}_{matrix}_{ob}"] = pd.DataFrame(
-                [
+                (
                     np.ravel(
                         matrix_summary(
                             sc.get._get_obs_rep(
@@ -1535,7 +1534,7 @@ def calculate_summary_stats(adata, obs, matrix="normalised"):
                         )
                     )
                     for group in adata.obs[ob].cat.categories
-                ],
+                ),
                 columns=adata.var_names,
                 index=adata.obs[ob].cat.categories,
             ).transpose()
