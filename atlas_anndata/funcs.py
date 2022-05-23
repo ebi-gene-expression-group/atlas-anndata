@@ -1255,23 +1255,21 @@ def make_markers_summary(
     """
 
     print(f"..calculating summary for cell grouping {marker_grouping}")
-    if not max_rank:
-        max_rank = de_table["rank"].max()
-    else:
+    if max_rank:
         print(f"..limiting stats report to top {max_rank} differential genes")
+        de_table = de_table[de_table["rank"] <= (max_rank - 1)]
 
     markers_summary = (
-        de_table[de_table["rank"] <= (max_rank - 1)]
-        .drop(["ref", "scores", "logfoldchanges", "pvals"], axis=1)
+        de_table.drop(["ref", "scores", "logfoldchanges", "pvals"], axis=1)
         .merge(
             pd.concat(
                 [
-                    adata.varm[f"mean_{layer}_{marker_grouping}"].melt(
-                        ignore_index=False
-                    ),
-                    adata.varm[f"median_{layer}_{marker_grouping}"].melt(
-                        ignore_index=False
-                    ),
+                    adata.varm[f"mean_{layer}_{marker_grouping}"]
+                    .loc[de_table["genes"]]
+                    .melt(ignore_index=False),
+                    adata.varm[f"median_{layer}_{marker_grouping}"]
+                    .loc[de_table["genes"]]
+                    .melt(ignore_index=False),
                 ],
                 axis=1,
             )
