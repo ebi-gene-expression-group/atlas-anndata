@@ -1198,7 +1198,7 @@ def write_markers_from_adata(
                 quoting=csv.QUOTE_NONNUMERIC,
             )
             manifest = set_manifest_value(
-                manifest, "marker_stats", statsfile, matrix_for_stats
+                manifest, "marker_stats", statsfile, matrix_for_stats_name
             )
 
 
