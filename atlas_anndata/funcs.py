@@ -566,10 +566,10 @@ def write_cell_library_mapping(
 
         subdir = ""
         if matrix != "":
-            subdir = f"matrices/{matrix}"
+            subdir = f"matrices/{matrix}/"
 
         cell_to_library.to_csv(
-            f"{bundle_dir}/{subdir}/cell_to_library.txt",
+            f"{bundle_dir}/{subdir}cell_to_library.txt",
             sep="\t",
             header=False,
             index=False,
@@ -577,7 +577,7 @@ def write_cell_library_mapping(
         manifest = set_manifest_value(
             manifest,
             "cell_to_library",
-            f"{subdir}/cell_to_library.txt",
+            f"{subdir}cell_to_library.txt",
             matrix,
         )
 
