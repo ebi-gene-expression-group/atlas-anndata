@@ -1094,12 +1094,14 @@ def write_markers_from_adata(
 
     print("Writing markers and statistics")
 
-    marker_groupings_kinds = [
-        (x["slot"], x["kind"])
-        for x in config["cell_meta"]["entries"]
-        if x["markers"]
-    ]
-    marker_groupings = [x[0] for x in marker_groupings_kinds]
+    marker_groupings_kinds = dict(
+        [
+            (x["slot"], x["kind"])
+            for x in config["cell_meta"]["entries"]
+            if x["markers"]
+        ]
+    )
+    marker_groupings = list(marker_groupings_kinds.keys())
     if len(marker_groupings) == 0:
         print(
             "No cell groupings have markers specified, skipping writing of"
@@ -1118,7 +1120,7 @@ def write_markers_from_adata(
         )
     )
 
-    for cell_grouping, cell_group_kind in marker_groupings_kinds:
+    for cell_grouping, cell_group_kind in marker_groupings_kinds.items():
 
         markers_name = cell_grouping
         de_table = de_tables[cell_grouping]
@@ -1184,7 +1186,7 @@ def write_markers_from_adata(
                         cell_grouping,
                         de_table,
                         max_rank=max_rank_for_stats,
-                        cell_group_kind=cell_group_kind,
+                        cell_group_kind=marker_groupings_kinds[cell_grouping],
                     )
                     for cell_grouping, de_table in de_tables.items()
                 ]
