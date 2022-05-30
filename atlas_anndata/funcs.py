@@ -1267,10 +1267,10 @@ def make_markers_summary(
             pd.concat(
                 [
                     adata.varm[f"mean_{layer}_{marker_grouping}"]
-                    .loc[de_table["genes"]]
+                    .loc[de_table["genes"].unique()]
                     .melt(ignore_index=False),
                     adata.varm[f"median_{layer}_{marker_grouping}"]
-                    .loc[de_table["genes"]]
+                    .loc[de_table["genes"].unique()]
                     .melt(ignore_index=False),
                 ],
                 axis=1,
