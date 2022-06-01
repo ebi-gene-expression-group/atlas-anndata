@@ -1094,12 +1094,14 @@ def write_markers_from_adata(
 
     print("Writing markers and statistics")
 
-    marker_groupings_kinds = [
-        (x["slot"], x["kind"])
-        for x in config["cell_meta"]["entries"]
-        if x["markers"]
-    ]
-    marker_groupings = [x[0] for x in marker_groupings_kinds]
+    marker_groupings_kinds = dict(
+        [
+            (x["slot"], x["kind"])
+            for x in config["cell_meta"]["entries"]
+            if x["markers"]
+        ]
+    )
+    marker_groupings = list(marker_groupings_kinds.keys())
     if len(marker_groupings) == 0:
         print(
             "No cell groupings have markers specified, skipping writing of"
@@ -1118,7 +1120,7 @@ def write_markers_from_adata(
         )
     )
 
-    for cell_grouping, cell_group_kind in marker_groupings_kinds:
+    for cell_grouping, cell_group_kind in marker_groupings_kinds.items():
 
         markers_name = cell_grouping
         de_table = de_tables[cell_grouping]
@@ -1184,7 +1186,7 @@ def write_markers_from_adata(
                         cell_grouping,
                         de_table,
                         max_rank=max_rank_for_stats,
-                        cell_group_kind=cell_group_kind,
+                        cell_group_kind=marker_groupings_kinds[cell_grouping],
                     )
                     for cell_grouping, de_table in de_tables.items()
                 ]
@@ -1265,10 +1267,10 @@ def make_markers_summary(
             pd.concat(
                 [
                     adata.varm[f"mean_{layer}_{marker_grouping}"]
-                    .loc[de_table["genes"]]
+                    .loc[de_table["genes"].unique()]
                     .melt(ignore_index=False),
                     adata.varm[f"median_{layer}_{marker_grouping}"]
-                    .loc[de_table["genes"]]
+                    .loc[de_table["genes"].unique()]
                     .melt(ignore_index=False),
                 ],
                 axis=1,
@@ -1290,13 +1292,16 @@ def make_markers_summary(
     )
 
     # For unsupervised clusterings, record the grouping as k and increment the
-    # group numbers so they start from 1
+    # group numbers so they start from 1 if they're integers
 
     if cell_group_kind == "clustering":
         markers_summary["grouping_where_marker"] = len(
             adata.obs[marker_grouping].unique()
         )
-        if min([int(x) for x in markers_summary["cluster_id"]]) == 0:
+        if (
+            markers_summary["cluster_id"].str.isnumeric().all()
+            and min([int(x) for x in markers_summary["cluster_id"]]) == 0
+        ):
             markers_summary["cluster_id"] = [
                 int(x) + 1 for x in markers_summary["cluster_id"]
             ]
