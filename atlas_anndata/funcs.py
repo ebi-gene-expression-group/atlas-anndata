@@ -1292,13 +1292,16 @@ def make_markers_summary(
     )
 
     # For unsupervised clusterings, record the grouping as k and increment the
-    # group numbers so they start from 1
+    # group numbers so they start from 1 if they're integers
 
     if cell_group_kind == "clustering":
         markers_summary["grouping_where_marker"] = len(
             adata.obs[marker_grouping].unique()
         )
-        if min([int(x) for x in markers_summary["cluster_id"]]) == 0:
+        if (
+            markers_summary["cluster_id"].str.isnumeric().all()
+            and min([int(x) for x in markers_summary["cluster_id"]]) == 0
+        ):
             markers_summary["cluster_id"] = [
                 int(x) + 1 for x in markers_summary["cluster_id"]
             ]
