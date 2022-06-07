@@ -395,7 +395,7 @@ def make_bundle_from_anndata(
             atlas_style=atlas_style,
             droplet=config["droplet"],
             default_clustering=default_clustering,
-            sample_field=config["cell_meta"]["sample_field"],
+            sample_field=config["cell_meta"].get("sample_field"),
         )
 
         current_meta_slots = [
