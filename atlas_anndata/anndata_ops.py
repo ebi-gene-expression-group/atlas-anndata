@@ -475,9 +475,18 @@ def calculate_markers(adata, config, matrix=None, use_raw=None):
                     " recalculating with Scanpy..."
                 )
                 try:
+                    groups = "all"
+                    if adata.obs[mg].value_counts().min() < 2:
+                        groups = list(
+                            adata.obs[mg]
+                            .value_counts()
+                            .index[adata.obs[mg].value_counts() > 1]
+                        )
+
                     sc.tl.rank_genes_groups(
                         adata,
                         mg,
+                        groups=groups,
                         method="wilcoxon",
                         layer=layer,
                         key_added="markers_" + mg,
