@@ -408,7 +408,7 @@ def get_markers_table(adata, marker_grouping):
     return de_table
 
 
-def calculate_markers(adata, config, matrix="X", use_raw=None):
+def calculate_markers(adata, config, matrix=None, use_raw=None):
 
     """Calculate any missing marker sets for .obs columns tagged in the config
     has needing them, but which don't currently have them
@@ -421,6 +421,15 @@ def calculate_markers(adata, config, matrix="X", use_raw=None):
     >>> calculate_markers(adata, egconfig, matrix = matrix_for_markers, use_raw = False)
     Marker statistics not currently available for louvain_resolution_0.7, recalculating with Scanpy...
     """
+
+    # Unless a specific override is supplied, use the 'load_to_scxa_db' matrix
+    # where provided, or fall back to .X.
+
+    if matrix is None:
+        if "load_to_scxa_db" in config["matrices"]:
+            matrix = config["matrices"]["load_to_scxa_db"]
+        else:
+            matrix = "X"
 
     marker_groupings = [
         x["slot"] for x in config["cell_meta"]["entries"] if x["markers"]
@@ -451,7 +460,7 @@ def calculate_markers(adata, config, matrix="X", use_raw=None):
         elif matrix != "X":
             layer = matrix
 
-        if matrix != 'raw.X':
+        if matrix != "raw.X":
             use_raw = False
 
         # rank_genes_groups "Expects logarithmized data.", so apply that transform if required
