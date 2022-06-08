@@ -87,7 +87,7 @@ from scanpy_scripts.click_utils import CommaSeparatedText
 )
 @click.option(
     "--matrix-for-markers",
-    required=True,
+    required=False,
     default=None,
     help=(
         "Where cell groups in the configuration file have been flagged with"
