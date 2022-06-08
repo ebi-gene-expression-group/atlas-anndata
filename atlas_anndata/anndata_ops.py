@@ -52,11 +52,22 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
     ):
         adata.var.set_index(config["gene_meta"]["id_field"], inplace=True)
 
-    # Calcluate markers where necessary
+    # Find out which cell groupings have been flagged for markers
+
     marker_groupings = [
         x["slot"] for x in config["cell_meta"]["entries"] if x["markers"]
     ]
+
+    # Calcluate markers where necessary
+
     if len(marker_groupings) > 0:
+
+        # Do some limited sanitation due to problems caused by slashes in fields
+        # used for marker detection
+
+        for mg in marker_groupings:
+            adata.obs[mg] = pd.Categorical(adata.obs[mg].str.replace("/", " "))
+
         calculate_markers(
             adata=adata,
             config=config,
