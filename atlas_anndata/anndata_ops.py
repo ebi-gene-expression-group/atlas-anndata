@@ -450,6 +450,8 @@ def calculate_markers(adata, config, matrix="X", use_raw=None):
             raise Exception(errmsg)
         elif matrix != "X":
             layer = matrix
+
+        if matrix != 'raw.X':
             use_raw = False
 
         # rank_genes_groups "Expects logarithmized data.", so apply that transform if required
