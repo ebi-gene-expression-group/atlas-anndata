@@ -483,6 +483,15 @@ def make_bundle_from_anndata(
 
     # Write the anndata file back to the bundle
 
+    # Remove summary statistics before writing the file. This will keep the
+    # anndata file smaller, and avoid problems we had writing stats relating to
+    # cell groups with '/'.
+
+    for stat_slot in [
+        x for x in adata.varm.keys() if "mean" in x or "median" in x
+    ]:
+        del adata.varm[stat_slot]
+
     print("Writing annData file")
     adata_filename = f"{exp_name}.project.h5ad"
     adata.write(f"{bundle_subdir}/{adata_filename}")
