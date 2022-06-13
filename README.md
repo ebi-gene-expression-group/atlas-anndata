@@ -323,6 +323,28 @@ For all sections, check [the example](atlas_anndata/data/bundles/E-MTAB-6077/ann
 
 You would fill the 'name' field here with something more descriptive for the matrix.
 
+### Mark cell metadata fields for marker detection
+
+Any categorical field can be used for marker detection (where appropriate matrices are available). This involves flipping the 'marker' status on a field annotation, e.g. changing:
+
+```
+  - default: false
+    kind: clustering
+    markers: true
+    parameters: {}
+    slot: leiden
+```
+
+... to 
+
+```
+  - default: false
+    kind: clustering
+    markers: false
+    parameters: {}
+    slot: leiden
+```
+
 #### Validate config YAML
 
 Having edited the config YAML, you should validate it against a schema we provide and the annData file itself. We can use this mechanism to ensure that inputs match the expectations of Single Cell Expression Atlas. 
