@@ -35,6 +35,7 @@ from .util import (
     clusterings_to_ks,
     check_bundle_init,
     remove_empty_dirs,
+    renumber_clusters,
 )
 
 from .anndata_ops import (
@@ -705,7 +706,7 @@ def write_clusters_from_adata(manifest, bundle_dir, adata, config):
 
     # Create a DataFrame for cluster outputs
 
-    clusters = adata.obs[cluster_obs].T
+    clusters = pd.DataFrame(adata.obs[cluster_obs]).apply(renumber_clusters).T
     clusters["K"] = [clustering_to_k[x] for x in cluster_obs]
     clusters["sel.K"] = default_cluster_obs
 
@@ -1145,7 +1146,7 @@ def write_markers_from_adata(
             # Reset cluster numbering to be from 1 if required
 
             if de_table["cluster"].min() == "0":
-                de_table["cluster"] = [int(x) + 1 for x in de_table["cluster"]]
+                de_table["cluster"] = renumber_clusters(de_table["cluster"])
 
         # Write marker table to tsv
 
@@ -1311,9 +1312,9 @@ def make_markers_summary(
             markers_summary["cluster_id"].str.isnumeric().all()
             and min([int(x) for x in markers_summary["cluster_id"]]) == 0
         ):
-            markers_summary["cluster_id"] = [
-                int(x) + 1 for x in markers_summary["cluster_id"]
-            ]
+            markers_summary["cluster_id"] = renumber_clusters(
+                markers_summary["cluster_id"]
+            )
     else:
         markers_summary["grouping_where_marker"] = marker_grouping
 

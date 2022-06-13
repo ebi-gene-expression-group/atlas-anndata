@@ -374,3 +374,23 @@ def remove_empty_dirs(path, remove_root=False):
         if len(files) == 0 and remove_root:
             print(f"Removing empty folder: {path}")
             os.rmdir(path)
+
+
+def renumber_clusters(clusters):
+    """
+    Renumber an array of values to start from 1 instead of 0, conditional on
+    them alll being integers
+
+    >>> renumber_clusters(pd.Series(['0', '1', '2']))
+    [1, 2, 3]
+    >>> renumber_clusters(pd.Series(['1', '1', '2']))
+    0    1
+    1    1
+    2    2
+    dtype: object
+    """
+
+    if clusters.str.isnumeric().all() and min([int(x) for x in clusters]) == 0:
+        return [int(x) + 1 for x in clusters]
+    else:
+        return clusters
