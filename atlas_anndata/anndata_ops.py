@@ -40,6 +40,9 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
     >>> sc.pp.log1p(adata, layer = matrix_for_markers)
     >>> update_anndata(adata, egconfig, matrix_for_markers=matrix_for_markers, use_raw = False)
     Marker statistics not currently available for louvain_resolution_0.7, recalculating with Scanpy...
+    >>> # Make sure we haven't done anything that would make the object unreadable
+    >>> adata.write("foo.h5ad")
+    >>> adata = sc.read("foo.h5ad")
     """
 
     # Record the config in the object
@@ -50,7 +53,7 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
         config["gene_meta"]["id_field"] != "index"
         and MISSING not in config["gene_meta"]["id_field"]
     ):
-        adata.var.set_index(config["gene_meta"]["id_field"], inplace=True)
+        adata.var_names = adata.var[config["gene_meta"]["id_field"]]
 
     # Calcluate markers where necessary
     marker_groupings = [
