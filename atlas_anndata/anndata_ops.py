@@ -54,6 +54,7 @@ def update_anndata(adata, config, matrix_for_markers=None, use_raw=None):
         and MISSING not in config["gene_meta"]["id_field"]
     ):
         adata.var_names = adata.var[config["gene_meta"]["id_field"]]
+        adata.var.index.name = None
 
     # Calcluate markers where necessary
     marker_groupings = [
