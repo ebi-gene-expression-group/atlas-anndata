@@ -1438,7 +1438,7 @@ def set_manifest_value(manifest, description, filename, parameterisation=""):
     if description not in manifest:
         manifest[description] = OrderedDict()
 
-    manifest[description][parameterisation] = filename
+    manifest[description][str(parameterisation)] = filename
 
     return manifest
 
