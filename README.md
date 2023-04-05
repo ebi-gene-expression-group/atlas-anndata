@@ -1,4 +1,4 @@
-[![Anaconda-Server Badge](https://anaconda.org/ebi-gene-expression-group/atlas-anndata/badges/installer/conda.svg)](https://anaconda.org/ebi-gene-expression-group/atlas-anndata) [![PyPI version fury.io](https://badge.fury.io/py/atlas-anndata.svg)](https://pypi.python.org/pypi/atlas-anndata/)
+[![Anaconda-Server Badge](https://anaconda.org/ebi-gene-expression-group/atlas-anndata/badges/version.svg)](https://anaconda.org/ebi-gene-expression-group/atlas-anndata) [![PyPI version fury.io](https://badge.fury.io/py/atlas-anndata.svg)](https://pypi.python.org/pypi/atlas-anndata/)
 [![Build Status](https://api.travis-ci.com/ebi-gene-expression-group/atlas-anndata.svg?branch=develop)](https://travis-ci.org/ebi-gene-expression-group/atlas-anndata)
 
 
