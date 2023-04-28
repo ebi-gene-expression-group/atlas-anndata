@@ -479,7 +479,7 @@ def make_bundle_from_anndata(
                 f"{bundle_subdir}/software.tsv", sep="\t", index=False
             )
             set_manifest_value(
-                manifest, "analysis_versions_file", "software.tsv"
+                manifest, "software_versions_file", "software.tsv"
             )
 
     # Write the anndata file back to the bundle
