@@ -330,7 +330,7 @@ Any categorical field can be used for marker detection (where appropriate matric
 ```
   - default: false
     kind: clustering
-    markers: true
+    markers: false
     parameters: {}
     slot: leiden
 ```
@@ -340,7 +340,7 @@ Any categorical field can be used for marker detection (where appropriate matric
 ```
   - default: false
     kind: clustering
-    markers: false
+    markers: true
     parameters: {}
     slot: leiden
 ```
