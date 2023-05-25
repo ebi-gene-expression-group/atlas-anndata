@@ -461,7 +461,7 @@ def calculate_markers(adata, config, matrix=None, use_raw=None):
                 " transformations as required."
             )
             raise Exception(errmsg)
-        elif matrix != "X":
+        elif matrix != "X" and matrix != "raw.X":
             layer = matrix
 
         if matrix != "raw.X":
