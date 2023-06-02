@@ -801,9 +801,15 @@ def scale_matrix_in_anndata(
     """
 
     if "raw." in slot:
-        adata.raw.X = scale_matrix(
+        # can't update .raw.X directly, so try some walk-around
+        raw_X_scale = scale_matrix(
             adata.raw.X, scale, reverse_transform=reverse_transform
-        )
+        ) # calculate the scaled matrix
+        X_org = adata.X # backup .X
+        adata = adata.raw.to_adata() # transfer adata.raw object to adata object
+        adata.X = raw_X_scale # update new adata.X to be the scaled matrix
+        adata.raw = adata # move the object back to .raw
+        adata.X = X_org # save the original .X back
     elif slot == "X":
         adata.X = scale_matrix(
             adata.X, scale, reverse_transform=reverse_transform
