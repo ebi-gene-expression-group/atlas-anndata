@@ -214,6 +214,27 @@ def initialise_bundle(
 
     adata = sc.read(anndata_file)
 
+    # check if the index of adata.var is Ensembl IDs
+    if not all(g.startswith('ENS') for g in adata.var.index):
+        print("WARNING: Index of .var is not Ensembl IDs, which will fail the process later. "
+              "We will replace it with the column containing Ensembl IDs.")
+
+        # search for Ensembl ID column
+        nonmeta_var_patterns = ['mean', 'counts', 'n_cells', 'highly_variable', 'dispersion', 'std']
+        col_ensembl_id = None
+        for c in adata.var:
+            if not any([y in c for y in nonmeta_var_patterns]):
+                if all(g.startswith('ENS') for g in adata.var[c]):
+                    col_ensembl_id = c
+
+        # set Ensembl ID column as index if found
+        if col_ensembl_id:
+            adata.var.index = adata.var[col_ensembl_id].values.tolist()
+        else:
+            errmsg = ("Gene Ensembl IDs are not included in the AnnData object. "
+                      "Please add them as the index or a column in AnnData.var.")
+            raise Exception(errmsg)
+
     config = {
         "droplet": droplet,
         "matrices": describe_matrices(
