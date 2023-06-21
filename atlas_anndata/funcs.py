@@ -912,6 +912,7 @@ def write_gene_metadata(
         "n_cells",
         "highly_variable",
         "dispersion",
+        "std",
     ]
 
     nonmeta_cols = [
