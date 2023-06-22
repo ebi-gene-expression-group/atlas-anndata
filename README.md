@@ -235,7 +235,7 @@ The config is likely to wrong in a number of ways, but its just a starting point
 
 ### 2: refine configuration for curation
 
-With the configuration file and unmoderated content available to us we can make some sensible decisions about some of those settings in the YAML file.
+With the configuration file and unmoderated content available to us, we can make some sensible decisions about some of those settings in the YAML file.
 
 #### Identify correct gene ID and gene name fields
 
@@ -283,20 +283,20 @@ make_bundle_from_anndata E-MTAB-6077 inject_magetab
 
 This will pull the curated metadata from the `scxa-metadata` repo, condense the SDRF (adding ontology terms) and re-generate cell-wise annotations that will be used to enrich the content of the annData file, with any new fields from curation added to `.obs`. It will also add configuration for those fields to the YAML.
 
-Not that `--conda-prefix` can be spedified here, and is a location conda environments will be stored for the workflow that does SDRF condensation etc.
+Not that `--conda-prefix` can be specified here, and is a location conda environments will be stored for the workflow that does SDRF condensation etc.
 
 ### 6. Finalise configuration
 
-We're almost ready to creat our final bundle, but we must first finalise all the configuration in `anndata-config.yaml` for the bundle.
+We're almost ready to create our final bundle, but we must first finalise all the configuration in `anndata-config.yaml` for the bundle.
 
 #### Flag curated fields
 
-Cell meta data from annData objects is a mixture of any input sample metadata provided by the author, plus annotations added over the course of analysis. The latter may not be appropriate for inclusion in the metadata in SCXA. Check the fields described in `cell_meta`, especially their kind ('curation', 'clustering', 'analysis'). Curated fields are those present before analysis, biological and technical info for cells and samples. Clustering is used to indicate the results of unsupervised cell clustering stored in .obs. Analysis is everthing else, comprising all other fields added to .obs during analysis.
+Cell metadata from annData objects is a mixture of any input sample metadata provided by the author, plus annotations added over the course of analysis. The latter may not be appropriate for inclusion in the metadata in SCXA. Check the fields described in `cell_meta`, especially their kind ('curation', 'clustering', 'analysis'). Curated fields are those present before analysis, biological and technical info for cells and samples. Clustering is used to indicate the results of unsupervised cell clustering stored in .obs. Analysis is everything else, comprising all other fields added to .obs during analysis.
 
 Most importantly: 
 
  - Flip `curation` to `analysis` for any field entry which should not ultimately form part of the SCXA experiment MAGE-TAB format metadata.
- - Ensure any fields corresponding to unsupervised clusterings are flagged correctly.
+ - Ensure any fields corresponding to unsupervised clustering are flagged correctly.
 
 #### Gather other missing info needed before final bundle creation
 
