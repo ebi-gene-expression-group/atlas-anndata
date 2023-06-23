@@ -1,0 +1,48 @@
+MAGE-TAB Version	1.1
+Investigation Title	
+Comment[Submitted Name]	
+Experiment Description	
+Experimental Design	
+Experimental Design Term Source REF	
+Experimental Design Term Accession Number	
+Experimental Factor Name	
+Experimental Factor Type	
+Experimental Factor Term Source REF	
+Experimental Factor Term Accession Number	
+Person Last Name	
+Person First Name	
+Person Mid Initials	
+Person Email	
+Person Phone	
+Person Fax	
+Person Address	
+Person Affiliation	
+Person Roles	
+Date of Experiment	
+Public Release Date	
+PubMed ID	
+Publication DOI	
+Publication Author List	
+Publication Title	
+Publication Status	
+Publication Status Term Source REF	
+Publication Status Term Accession Number	
+Protocol Name	
+Protocol Type	
+Protocol Term Source REF	
+Protocol Term Accession Number	
+Protocol Description	
+Protocol Hardware	
+Protocol Software	
+Term Source Name	
+Term Source File	
+Term Source Version	
+SDRF File	
+Comment[AEExperimentType]	
+Comment[TemplateType]	
+Comment[RelatedExperiment]	
+	
+Comment[EACurator]	
+Comment[EAExperimentType]	
+Comment[EAExpectedClusters]	
+Comment[AdditionalAttributes]	

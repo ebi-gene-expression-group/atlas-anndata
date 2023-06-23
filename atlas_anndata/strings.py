@@ -9,6 +9,9 @@ load_to_dbxa_matrix_name = "filtered_normalised"
 schema_file = pkg_resources.resource_filename(
     "atlas_anndata", "config_schema.yaml"
 )
+idf_template = pkg_resources.resource_filename(
+    "atlas_anndata", "idf_template.txt"
+)
 example_bundle_dir = pkg_resources.resource_filename(
     "atlas_anndata", "data/bundles"
 )

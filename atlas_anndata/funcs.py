@@ -48,6 +48,7 @@ from .anndata_ops import (
 
 from .strings import (
     schema_file,
+    idf_template,
     example_bundle_dir,
     example_manifest,
     example_config_file,
@@ -1020,9 +1021,12 @@ def write_cell_metadata(
                 index_label="id",
             )
 
+    if write_premagetab:
+        print("Creating idf template file")
+        shutil.copy(idf_template, f"{bundle_dir}/mage-tab/{exp_name}.preidf.txt")
+
 
 # Write dimension reductions from .obsm slots
-
 
 def write_obsm_from_adata(
     manifest, adata, obsm_name, embedding_type, parameterisation, bundle_dir
