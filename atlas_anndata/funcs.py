@@ -498,6 +498,8 @@ def make_bundle_from_anndata(
     ]:
         del adata.varm[stat_slot]
 
+    if 'scxa_config' in adata.uns.keys(): del adata.uns['scxa_config']
+
     print("Writing annData file")
     adata_filename = f"{exp_name}.project.h5ad"
     adata.write(f"{bundle_subdir}/{adata_filename}")
