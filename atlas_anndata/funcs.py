@@ -1003,7 +1003,7 @@ def write_cell_metadata(
     precells_filename = f"mage-tab/{exp_name}.precells.txt"
 
     cell_metadata, run_metadata, cell_specific_metadata = derive_metadata(
-        adata, config=config, kind=None
+        adata, config=config, kind=kind
     )
 
     # Output the total cell metadata anyway
