@@ -215,6 +215,11 @@ def initialise_bundle(
 
     adata = sc.read(anndata_file)
 
+    # Make sure the index of adata.var is Ensembl IDs
+    check_var_index(adata)
+    # Make sure the index of adata.raw.var if exists is Ensembl IDs
+    if adata.raw != None: check_var_index(adata.raw)
+
     config = {
         "droplet": droplet,
         "matrices": describe_matrices(
@@ -480,7 +485,7 @@ def make_bundle_from_anndata(
                 f"{bundle_subdir}/software.tsv", sep="\t", index=False
             )
             set_manifest_value(
-                manifest, "analysis_versions_file", "software.tsv"
+                manifest, "software_versions_file", "software.tsv"
             )
 
     # Write the anndata file back to the bundle
@@ -493,6 +498,8 @@ def make_bundle_from_anndata(
         x for x in adata.varm.keys() if "mean" in x or "median" in x
     ]:
         del adata.varm[stat_slot]
+
+    if 'scxa_config' in adata.uns.keys(): del adata.uns['scxa_config']
 
     print("Writing annData file")
     adata_filename = f"{exp_name}.project.h5ad"
@@ -519,6 +526,34 @@ def make_bundle_from_anndata(
 
     if step == "final":
         reconcile_manifest_bundle(bundle_subdir, manifest)
+
+
+def check_var_index(ann_obj):
+    objectname = "AnnData" + (".raw" if "raw" in str(ann_obj).split(" with ")[0].lower() else "")
+
+    # check the index is Ensembl IDs
+    if all(g.startswith('ENS') for g in ann_obj.var.index):
+        print(f"The index of {objectname}.var is Ensembl IDs")
+    else:
+        print(f"WARNING: Index of {objectname}.var is not Ensembl IDs, which may fail the process later.\n"
+              "... replacing with the column containing Ensembl IDs.")
+
+        # search .var for the Ensembl ID column
+        nonmeta_var_patterns = ['mean', 'counts', 'n_cells', 'highly_variable', 'dispersion', 'std']
+
+        col_ensembl_id = None
+        for c in ann_obj.var:
+            if not any([y in c for y in nonmeta_var_patterns]):
+                if all(g.startswith('ENS') for g in ann_obj.var[c]):
+                    col_ensembl_id = c
+
+        # set Ensembl ID column as index if found
+        if col_ensembl_id:
+            ann_obj.var.index = ann_obj.var[col_ensembl_id].values.tolist()
+        else:
+            errmsg = (f"Failed to set Ensembl IDs as the index of {objectname}. "
+                      f"Please add them as the index or a column in {objectname}.var.")
+            raise Exception(errmsg)
 
 
 def write_config(config, bundle_dir, exp_name):
@@ -802,7 +837,8 @@ def scale_matrix_in_anndata(
     """
 
     if "raw." in slot:
-        adata.raw.X = scale_matrix(
+        # can't update .raw.X directly, so try some walk-around
+        adata.raw._X = scale_matrix(
             adata.raw.X, scale, reverse_transform=reverse_transform
         )
     elif slot == "X":
@@ -912,6 +948,7 @@ def write_gene_metadata(
         "n_cells",
         "highly_variable",
         "dispersion",
+        "std",
     ]
 
     nonmeta_cols = [
@@ -967,7 +1004,7 @@ def write_cell_metadata(
     precells_filename = f"mage-tab/{exp_name}.precells.txt"
 
     cell_metadata, run_metadata, cell_specific_metadata = derive_metadata(
-        adata, config=config, kind=None
+        adata, config=config, kind=kind
     )
 
     # Output the total cell metadata anyway
