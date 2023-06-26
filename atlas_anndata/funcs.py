@@ -214,26 +214,10 @@ def initialise_bundle(
 
     adata = sc.read(anndata_file)
 
-    # check if the index of adata.var is Ensembl IDs
-    if not all(g.startswith('ENS') for g in adata.var.index):
-        print("WARNING: Index of .var is not Ensembl IDs, which will fail the process later. "
-              "We will replace it with the column containing Ensembl IDs.")
-
-        # search for Ensembl ID column
-        nonmeta_var_patterns = ['mean', 'counts', 'n_cells', 'highly_variable', 'dispersion', 'std']
-        col_ensembl_id = None
-        for c in adata.var:
-            if not any([y in c for y in nonmeta_var_patterns]):
-                if all(g.startswith('ENS') for g in adata.var[c]):
-                    col_ensembl_id = c
-
-        # set Ensembl ID column as index if found
-        if col_ensembl_id:
-            adata.var.index = adata.var[col_ensembl_id].values.tolist()
-        else:
-            errmsg = ("Gene Ensembl IDs are not included in the AnnData object. "
-                      "Please add them as the index or a column in AnnData.var.")
-            raise Exception(errmsg)
+    # Make sure the index of adata.var is Ensembl IDs
+    check_var_index(adata)
+    # Make sure the index of adata.raw.var if exists is Ensembl IDs
+    if adata.raw != None: check_var_index(adata.raw)
 
     config = {
         "droplet": droplet,
@@ -539,6 +523,34 @@ def make_bundle_from_anndata(
 
     if step == "final":
         reconcile_manifest_bundle(bundle_subdir, manifest)
+
+
+def check_var_index(ann_obj):
+    objectname = "AnnData" + (".raw" if "raw" in str(ann_obj).split(" with ")[0].lower() else "")
+
+    # check the index is Ensembl IDs
+    if all(g.startswith('ENS') for g in ann_obj.var.index):
+        print(f"The index of {objectname}.var is Ensembl IDs")
+    else:
+        print(f"WARNING: Index of {objectname}.var is not Ensembl IDs, which may fail the process later.\n"
+              "... replacing with the column containing Ensembl IDs.")
+
+        # search .var for the Ensembl ID column
+        nonmeta_var_patterns = ['mean', 'counts', 'n_cells', 'highly_variable', 'dispersion', 'std']
+
+        col_ensembl_id = None
+        for c in ann_obj.var:
+            if not any([y in c for y in nonmeta_var_patterns]):
+                if all(g.startswith('ENS') for g in ann_obj.var[c]):
+                    col_ensembl_id = c
+
+        # set Ensembl ID column as index if found
+        if col_ensembl_id:
+            ann_obj.var.index = ann_obj.var[col_ensembl_id].values.tolist()
+        else:
+            errmsg = (f"Failed to set Ensembl IDs as the index of {objectname}. "
+                      f"Please add them as the index or a column in {objectname}.var.")
+            raise Exception(errmsg)
 
 
 def write_config(config, bundle_dir, exp_name):
