@@ -257,7 +257,9 @@ The sample field is encoded in the config generated above like:
   sample_field: FILL ME with a string
 ```
 
-The value of this configuration field must be a field name from NONAME.cell_metadata.tsv in the bundle directory corresponding to a field that separates cells from different libraries.The `sample` field in this file is usually derived from the cell identifiers, and should only be used in the absence of more concrete information.
+The value of this configuration field must be a field name from NONAME.cell_metadata.tsv in the bundle directory corresponding to a field that separates cells from different libraries.
+
+In case there is no such a field, please use the `sample` field in this file, which is usually derived from the cell identifiers and should only be used in the absence of more concrete information.
 
 ### 3: Initialise MAGE-TAB
 
