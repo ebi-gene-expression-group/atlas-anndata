@@ -171,7 +171,7 @@ def overwrite_obs_with_magetab(
     return adata
 
 
-def derive_metadata(adata, config, kind=None):
+def derive_metadata(adata, config, write_premagetab=False, kind=None):
 
     """Extract cell metadata, select fields and separate out run-wise info.
 
@@ -199,20 +199,17 @@ def derive_metadata(adata, config, kind=None):
     cell_specific_metadata = None
 
     cell_metadata = adata.obs.copy()
-
-    # By default print all obs columns, but that's probably not we want in most
-    # cases because of mixture of data types there (from curation, QC,
-    # clustering etc)
-
+    # if kind unspecified, cell_metadata contains all the columns that are not annotated as "analysis" in .obs
     if kind is None:
-        obs_columns = list(adata.obs.columns)
+        obs_columns = [
+            [slot_def["slot"] for slot_def in config["cell_meta"]["entries"] if slot_def["kind"] != "analysis"]]
     else:
         obs_columns = [
             slot_def["slot"]
             for slot_def in config["cell_meta"]["entries"]
             if slot_def["kind"] == kind
         ]
-        cell_metadata = cell_metadata[obs_columns]
+    cell_metadata = cell_metadata[obs_columns]
 
     if config["droplet"]:
 
@@ -242,15 +239,17 @@ def derive_metadata(adata, config, kind=None):
                     adata.obs[sample_field], adata.obs_names
                 )
             ]
-
         else:
             print("...deriving runs and barcodes by parsing cell IDs")
             runs, barcodes = parse_cell_ids(adata)
 
             # If we had to derive run IDs from cell IDs, save them in the
             # metadata, including in the original anndata object, so they can
-            # beused for make cell/ library mappings
+            # be used for make cell/ library mappings
             cell_metadata[sample_field] = adata.obs[sample_field] = runs
+
+        if sample_field not in cell_metadata.columns:
+            cell_metadata[sample_field] = adata.obs[sample_field]
 
         if "barcode" not in cell_metadata.columns:
             # Add derived barcodes as a new column
@@ -259,30 +258,33 @@ def derive_metadata(adata, config, kind=None):
                 (sample_colno + 1), column="barcode", value=barcodes
             )
 
-        # Split cell metadata by run ID and create run-wise metadata with
-        # any invariant value across all cells of a run
+        if write_premagetab:
 
-        print("..extracting metadata consistent within samples")
-        unique_runs = list(set(runs))
-        submetas = [cell_metadata[[y == x for y in runs]] for x in unique_runs]
-        sample_metadata = pd.concat(
-            [
-                df[[x for x in df.columns if len(df[x].unique()) == 1]].head(1)
-                for df in submetas
-            ],
-            join="inner",
-        )
-        sample_metadata["run"] = unique_runs
-        sample_metadata.set_index("run", inplace=True)
-        print("..assigning other metadata as cell_specific")
-        cell_specific_metadata = cell_metadata[
-            [sample_field]
-            + [
-                x
-                for x in cell_metadata.columns
-                if x not in list(sample_metadata.columns)
+            # Split cell metadata by run ID and create run-wise metadata with
+            # any invariant value across all cells of a run
+
+            print("..extracting metadata consistent within samples")
+            unique_runs = list(set(runs))
+            submetas = [adata.obs[[y == x for y in runs]] for x in unique_runs]
+            sample_metadata = pd.concat(
+                [
+                    df[[x for x in df.columns if len(df[x].unique()) == 1]].head(1)
+                    for df in submetas
+                ],
+                join="inner",
+            )
+
+            sample_metadata["run"] = unique_runs
+            sample_metadata.set_index("run", inplace=True)
+            print("..assigning other metadata as cell_specific")
+            cell_specific_metadata = cell_metadata[
+                [sample_field]
+                + [
+                    x
+                    for x in cell_metadata.columns
+                    if x not in list(sample_metadata.columns)
+                ]
             ]
-        ]
 
     return cell_metadata, sample_metadata, cell_specific_metadata
 
