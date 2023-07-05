@@ -171,7 +171,7 @@ def overwrite_obs_with_magetab(
     return adata
 
 
-def derive_metadata(adata, config, write_premagetab, kind=None):
+def derive_metadata(adata, config, write_premagetab=False, kind=None):
 
     """Extract cell metadata, select fields and separate out run-wise info.
 
