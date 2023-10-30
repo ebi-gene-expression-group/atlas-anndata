@@ -7,9 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: psf/black@main
+      - uses: psf/black@stable
         with:
-          options: '--check --verbose --include="\.pyi?$|bin/*" .'
+          options: '--check --verbose --preview --include="\.pyi?$|bin/*" .'
       - name: Set up Python environment
         uses: actions/setup-python@v1
         with:
