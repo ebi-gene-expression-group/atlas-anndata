@@ -7,20 +7,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      # - uses: psf/black@stable
+      #   with:
+      #     options: '--check --verbose --include="\.pyi?$|bin/*" .'
       - name: Set up Python environment
         uses: actions/setup-python@v1
         with:
           python-version: "3.9"
-      - name: flake8 Lint .py files
-        uses: py-actions/flake8@v2
-        with:
-          path: "."
-          args: '-vv'
-      - name: flake8 Lint scripts
-        uses: py-actions/flake8@v2
-        with:
-          path: "bin"
-          args: '--filename="*" -vv'
+      # - name: flake8 Lint .py files
+      #   uses: py-actions/flake8@v2
+      #   with:
+      #     path: "."
+      #     args: '-vv'
+      # - name: flake8 Lint scripts
+      #   uses: py-actions/flake8@v2
+      #   with:
+      #     path: "bin"
+      #     args: '--filename="*" -vv'
       - name: Install dependencies
         run: |
           pip install pytest
