@@ -9,11 +9,11 @@ jobs:
       - uses: actions/checkout@v2
       - uses: psf/black@stable
         with:
-          options: '--check --verbose --include="\.pyi?$|bin/*" .'
+          options: '--check --verbose --preview --include="\.pyi?$|bin/*" .'
       - name: Set up Python environment
         uses: actions/setup-python@v1
         with:
-          python-version: "3.8"
+          python-version: "3.9"
       - name: flake8 Lint .py files
         uses: py-actions/flake8@v2
         with:
