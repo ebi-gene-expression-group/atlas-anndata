@@ -1468,7 +1468,7 @@ def set_manifest_value(manifest, description, filename, parameterisation=""):
 
     >>> manifest = read_file_manifest(example_manifest)
     >>> set_manifest_value(
-    ...    manifest, "analysis_versions_file", f"foo.tsv")
+    ...    manifest, "analysis_versions_file", "foo.tsv")
     OrderedDict([('analysis_versions_file', OrderedDict([('', 'foo.tsv')]))])
     """
 
